@@ -1,38 +1,40 @@
 from app.services.state import UserStateManager
-from app.utils.helpers import load_exam_data, get_available_exams, get_available_subjects, get_available_years
-import random
-from typing import List, Dict, Any
+from app.services.exam_registry import ExamRegistry
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
 
 class ExamFlowManager:
     """
-    Manages the exam flow logic and question handling
+    Manages the exam flow logic using pluggable exam types
     """
     
     def __init__(self):
         self.state_manager = UserStateManager()
+        self.exam_registry = ExamRegistry()
     
     def start_conversation(self, user_phone: str) -> str:
         """
         Start a new conversation with the user
         """
         logger.info(f"Starting new conversation for user {user_phone}")
+        
         # Reset user state
         self.state_manager.reset_user_state(user_phone)
         
-        # Update state to exam selection - this is crucial!
+        # Update state to exam selection
         self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
         logger.info(f"Updated state to selecting_exam for user {user_phone}")
         
         # Get available exams
-        exams = get_available_exams()
+        exams = self.exam_registry.get_available_exams()
         logger.info(f"Available exams: {exams}")
         
         if not exams:
             return "Sorry, no exams are currently available. Please contact support."
         
+        # Format exam list with proper capitalization
         exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
         
         return (f"🎓 Welcome to the Exam Practice Bot!\n\n"
@@ -44,41 +46,48 @@ class ExamFlowManager:
         Handle exam selection
         """
         logger.info(f"Handling exam selection for {user_phone}: {message}")
-        exams = get_available_exams()
+        exams = self.exam_registry.get_available_exams()
         
         if not exams:
             return "Sorry, no exams are currently available. Please contact support."
         
         try:
-            choice = int(message) - 1
+            choice = int(message.strip()) - 1
             logger.info(f"Parsed choice: {choice}")
+            
             if 0 <= choice < len(exams):
                 selected_exam = exams[choice]
                 logger.info(f"Selected exam: {selected_exam}")
-                logger.info(f"Selected exam: {selected_exam}")
                 
-                # Update user state to subject selection
-                self.state_manager.update_user_state(user_phone, {
-                    'exam': selected_exam,
-                    'stage': 'selecting_subject'
-                })
-                logger.info(f"User {user_phone} selected exam {selected_exam}")
+                # Get exam type implementation
+                try:
+                    exam_type = self.exam_registry.get_exam_type(selected_exam)
+                    initial_stage = exam_type.get_initial_stage()
+                    
+                    # Update user state with exam and initial stage
+                    self.state_manager.update_user_state(user_phone, {
+                        'exam': selected_exam,
+                        'stage': initial_stage
+                    })
+                    logger.info(f"User {user_phone} selected exam {selected_exam}, moving to stage {initial_stage}")
+                    
+                    # Get initial options for the first stage
+                    user_state = self.state_manager.get_user_state(user_phone)
+                    options = exam_type.get_available_options(initial_stage, user_state)
+                    
+                    if not options:
+                        return f"Sorry, no options available for {selected_exam.upper()}. Please try another exam."
+                    
+                    # Format the response based on the stage
+                    stage_name = initial_stage.replace('selecting_', '').replace('_', ' ').title()
+                    options_text = exam_type.format_options_list(options, f"Available {stage_name}s")
+                    
+                    return f"✅ You selected: {selected_exam.upper()}\n\n{options_text}"
+                    
+                except ValueError as e:
+                    logger.error(f"Error getting exam type for {selected_exam}: {e}")
+                    return f"Sorry, {selected_exam.upper()} is not yet supported. Please try another exam."
                 
-                # Get available subjects for this exam
-                subjects = get_available_subjects(selected_exam)
-                logger.info(f"Available subjects for {selected_exam}: {subjects}")
-                logger.info(f"Available subjects for {selected_exam}: {subjects}")
-                
-                if not subjects:
-                    # Reset to exam selection if no subjects
-                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
-                    return f"Sorry, no subjects available for {selected_exam.upper()}. Please try another exam."
-                
-                subject_list = "\n".join([f"{i+1}. {subject}" for i, subject in enumerate(subjects)])
-                
-                return (f"✅ You selected: {selected_exam.upper()}\n\n"
-                        f"Available subjects:\n{subject_list}\n\n"
-                        f"Please reply with the number of your choice.")
             else:
                 return f"Invalid choice. Please select a number between 1 and {len(exams)}."
                 
@@ -89,228 +98,50 @@ class ExamFlowManager:
             logger.error(f"Error in exam selection: {str(e)}")
             return "Sorry, something went wrong. Please try again."
     
-    def handle_subject_selection(self, user_phone: str, message: str) -> str:
+    def handle_stage_flow(self, user_phone: str, message: str) -> str:
         """
-        Handle subject selection
+        Handle stage-specific flow using exam type implementations
         """
-        logger.info(f"Handling subject selection for user {user_phone} with message: {message}")
         user_state = self.state_manager.get_user_state(user_phone)
-        logger.info(f"Current state before subject selection: {user_state}")
-        
         exam = user_state.get('exam')
+        stage = user_state.get('stage')
+        
+        logger.info(f"Handling stage flow for {user_phone}: exam={exam}, stage={stage}, message={message}")
         
         if not exam:
             logger.error(f"No exam found in state for {user_phone}")
-            # Reset to start
-            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
             return "Session expired. Please send 'start' to begin again."
         
-        subjects = get_available_subjects(exam)
-        logger.info(f"Available subjects for {exam}: {subjects}")
+        if not stage:
+            logger.error(f"No stage found in state for {user_phone}")
+            return "Session error. Please send 'restart' to start over."
         
         try:
-            choice = int(message.strip()) - 1
-            logger.info(f"User choice: {choice}, Available subjects: {subjects}")
+            # Get exam type implementation
+            exam_type = self.exam_registry.get_exam_type(exam)
             
-            if 0 <= choice < len(subjects):
-                selected_subject = subjects[choice]
-                logger.info(f"Selected subject: {selected_subject}")
-                
-                # Update user state to year selection
-                self.state_manager.update_user_state(user_phone, {
-                    'subject': selected_subject,
-                    'stage': 'selecting_year'
-                })
-                logger.info(f"User {user_phone} selected subject {selected_subject}")
-                
-                # Get available years for this exam/subject
-                years = get_available_years(exam, selected_subject)
-                logger.info(f"Available years for {exam} {selected_subject}: {years}")
-                logger.info(f"Available years for {exam} {selected_subject}: {years}")
-                
-                if not years:
-                    # Reset to subject selection if no years
-                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_subject'})
-                    return f"Sorry, no years available for {exam.upper()} {selected_subject}. Please try another subject."
-                
-                year_list = "\n".join([f"{i+1}. {year}" for i, year in enumerate(years)])
-                
-                return (f"✅ You selected: {selected_subject}\n\n"
-                        f"Available years:\n{year_list}\n\n"
-                        f"Please reply with the number of your choice.")
-            else:
-                return f"Invalid choice. Please select a number between 1 and {len(subjects)}."
-                
-        except ValueError:
-            logger.warning(f"Invalid input for subject selection: '{message}'")
-            return f"Please enter a valid number between 1 and {len(subjects)}."
+            # Handle the current stage
+            result = exam_type.handle_stage(stage, user_phone, message, user_state)
+            
+            # Apply state updates
+            if result.get('state_updates'):
+                self.state_manager.update_user_state(user_phone, result['state_updates'])
+            
+            # Update stage if changed
+            if result.get('next_stage') and result['next_stage'] != stage:
+                self.state_manager.update_user_state(user_phone, {'stage': result['next_stage']})
+                logger.info(f"Stage transition for {user_phone}: {stage} -> {result['next_stage']}")
+            
+            # Reset state if exam is completed
+            if result.get('next_stage') == 'completed':
+                self.state_manager.reset_user_state(user_phone)
+                logger.info(f"Exam completed for {user_phone}, state reset")
+            
+            return result.get('response', 'No response generated.')
+            
+        except ValueError as e:
+            logger.error(f"Exam type error for {exam}: {e}")
+            return f"Sorry, {exam.upper()} is not supported yet. Please send 'start' to try another exam."
         except Exception as e:
-            logger.error(f"Error in subject selection: {str(e)}")
-            return "Sorry, something went wrong. Please try again."
-    
-    def handle_year_selection(self, user_phone: str, message: str) -> str:
-        """
-        Handle year selection and start the exam
-        """
-        logger.info(f"Handling year selection for user {user_phone} with message: {message}")
-        user_state = self.state_manager.get_user_state(user_phone)
-        logger.info(f"Current state before year selection: {user_state}")
-        
-        exam = user_state.get('exam')
-        subject = user_state.get('subject')
-        
-        if not exam or not subject:
-            logger.error(f"Missing exam or subject in state for {user_phone}")
-            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
-            return "Session expired. Please send 'start' to begin again."
-        
-        years = get_available_years(exam, subject)
-        logger.info(f"Available years for {exam} {subject}: {years}")
-        
-        try:
-            choice = int(message.strip()) - 1
-            logger.info(f"User choice: {choice}, Available years: {years}")
-            
-            if 0 <= choice < len(years):
-                selected_year = years[choice]
-                logger.info(f"Selected year: {selected_year}")
-                
-                # Load questions for this exam/subject/year
-                questions = load_exam_data(exam, subject, selected_year)
-                logger.info(f"Loaded questions for {exam} {subject} {selected_year}: {len(questions)} questions")
-                
-                if not questions:
-                    # Reset to year selection if no questions
-                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_year'})
-                    return f"Sorry, no questions available for {exam.upper()} {subject} {selected_year}. Please try another year."
-                
-                # Shuffle questions for variety
-                random.shuffle(questions)
-                
-                # Update user state to taking exam
-                self.state_manager.update_user_state(user_phone, {
-                    'year': selected_year,
-                    'stage': 'taking_exam',
-                    'questions': questions,
-                    'total_questions': len(questions),
-                    'current_question_index': 0,
-                    'score': 0
-                })
-                logger.info(f"User {user_phone} is starting the exam with {len(questions)} questions")
-                
-                # Send first question
-                return self._send_current_question(user_phone)
-            else:
-                return f"Invalid choice. Please select a number between 1 and {len(years)}."
-                
-        except ValueError:
-            logger.warning(f"Invalid input for year selection: '{message}'")
-            return f"Please enter a valid number between 1 and {len(years)}."
-        except Exception as e:
-            logger.error(f"Error in year selection: {str(e)}")
-            return "Sorry, something went wrong. Please try again."
-    
-    def handle_answer(self, user_phone: str, message: str) -> str:
-        """
-        Handle user's answer to a question
-        """
-        logger.info(f"Handling answer for user {user_phone} with message: {message}")
-        user_state = self.state_manager.get_user_state(user_phone)
-        questions = user_state.get('questions', [])
-        current_index = user_state.get('current_question_index', 0)
-        
-        if not questions or current_index >= len(questions):
-            logger.error(f"No questions or invalid index for {user_phone}")
-            return "No more questions available. Send 'start' to begin a new session."
-        
-        current_question = questions[current_index]
-        
-        # Validate answer format
-        valid_answers = ['a', 'b', 'c', 'd']
-        user_answer = message.strip().lower()
-        
-        if user_answer not in valid_answers:
-            return ("Please reply with A, B, C, or D for your answer.\n\n" + 
-                   self._format_question(current_question, current_index + 1, len(questions)))
-        
-        # Check if answer is correct
-        correct_answer = current_question.get('correct_answer', '').lower()
-        is_correct = user_answer == correct_answer
-        
-        # Update score if correct
-        new_score = user_state.get('score', 0)
-        if is_correct:
-            new_score += 1
-        
-        # Move to next question
-        next_index = current_index + 1
-        
-        # Prepare response with explanation
-        explanation = current_question.get('explanation', 'No explanation available.')
-        response = f"{'✅ Correct!' if is_correct else '❌ Wrong!'} The correct answer is {correct_answer.upper()}.\n\n"
-        response += f"💡 {explanation}\n\n"
-        
-        if next_index >= len(questions):
-            # End of exam
-            percentage = (new_score / len(questions)) * 100
-            self.state_manager.reset_user_state(user_phone)
-            logger.info(f"User {user_phone} completed the exam. Score: {new_score}/{len(questions)} ({percentage:.1f}%)")
-            
-            return (f"{response}🎉 Exam completed!\n\n"
-                   f"Your Score: {new_score}/{len(questions)} ({percentage:.1f}%)\n\n"
-                   f"Send 'start' to take another exam.")
-        else:
-            # Update state and send next question
-            self.state_manager.update_user_state(user_phone, {
-                'current_question_index': next_index,
-                'score': new_score
-            })
-            
-            next_question = questions[next_index]
-            response += self._format_question(next_question, next_index + 1, len(questions))
-        
-        return response
-    
-    def _send_current_question(self, user_phone: str) -> str:
-        """
-        Send the current question to the user
-        """
-        user_state = self.state_manager.get_user_state(user_phone)
-        questions = user_state.get('questions', [])
-        current_index = user_state.get('current_question_index', 0)
-        
-        if current_index >= len(questions):
-            return "No questions available."
-        
-        current_question = questions[current_index]
-        exam = user_state.get('exam', '').upper()
-        subject = user_state.get('subject', '')
-        year = user_state.get('year', '')
-        
-        intro = f"🎯 Starting {exam} {subject} {year} Practice\n\n"
-        question_text = self._format_question(current_question, current_index + 1, len(questions))
-        
-        return intro + question_text
-    
-    def _format_question(self, question: Dict[str, Any], question_num: int, total_questions: int) -> str:
-        """
-        Format a question for display
-        """
-        question_text = question.get('question', 'No question text available')
-        options = question.get('options', {})
-        image_ref = question.get('image_ref')
-        
-        formatted = f"Question {question_num}/{total_questions}:\n{question_text}\n\n"
-        
-        # Add image reference if available
-        if image_ref:
-            formatted += f"📷 Image: {image_ref}\n\n"
-        
-        # Add options in order
-        for key in ['A', 'B', 'C', 'D']:
-            if key in options:
-                formatted += f"{key}. {options[key]}\n"
-        
-        formatted += "\nReply with A, B, C, or D"
-        
-        return formatted
+            logger.error(f"Error in stage flow: {str(e)}", exc_info=True)
+            return "Sorry, something went wrong. Please try again or send 'restart' to start over."

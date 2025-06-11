@@ -39,12 +39,14 @@ async def whatsapp_webhook(
     try:
         # Get user's current state
         user_state = state_manager.get_user_state(user_phone)
-        logger.info(f"Current state for {user_phone}: {user_state['stage']}")
+        current_stage = user_state.get('stage', 'initial')
+        
+        logger.info(f"Current state for {user_phone}: {current_stage}")
         logger.info(f"Processing message: {message_body}")
         logger.info(f"Full state data: {user_state}")
         
-        # Handle different states
-        if user_state['stage'] == 'initial' or message_body == 'start':
+        # Handle global commands first
+        if message_body == 'start' or current_stage == 'initial':
             # User is starting fresh or explicitly restarting
             response_text = exam_flow.start_conversation(user_phone)
             
@@ -64,32 +66,16 @@ async def whatsapp_webhook(
                            "• 'restart' - Restart current session\n"
                            "• 'exit' - End current session\n"
                            "• 'help' - Show this help message")
-            
+        
         # Handle stage-specific responses
-        elif current_stage == 'initial':
-            logger.info(f"User {user_phone} in initial stage, starting conversation")
-            response_text = exam_flow.start_conversation(user_phone)
-            
         elif current_stage == 'selecting_exam':
             logger.info(f"User {user_phone} selecting exam: {message_body}")
             response_text = exam_flow.handle_exam_selection(user_phone, message_body)
             
-        elif current_stage == 'selecting_subject':
-            logger.info(f"User {user_phone} selecting subject: {message_body}")
-            response_text = exam_flow.handle_subject_selection(user_phone, message_body)
-            
-        elif current_stage == 'selecting_year':
-            logger.info(f"User {user_phone} selecting year: {message_body}")
-            response_text = exam_flow.handle_year_selection(user_phone, message_body)
-            
-        elif current_stage == 'taking_exam':
-            logger.info(f"User {user_phone} answering question: {message_body}")
-            response_text = exam_flow.handle_answer(user_phone, message_body)
-            
         else:
-            logger.warning(f"Unknown stage for user {user_phone}: {current_stage}")
-            response_text = ("I didn't understand that. Send 'start' to begin, "
-                           "'restart' to start over, 'help' for commands, or 'exit' to quit.")
+            # Handle all other stages using the new pluggable system
+            logger.info(f"User {user_phone} in stage {current_stage}: {message_body}")
+            response_text = exam_flow.handle_stage_flow(user_phone, message_body)
         
         # Log the response being sent
         logger.info(f"Sending response to {user_phone}: {response_text[:100]}...")
