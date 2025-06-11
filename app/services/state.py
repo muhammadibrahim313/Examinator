@@ -2,7 +2,6 @@ from typing import Dict, Any
 import time
 import logging
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 class UserStateManager:
@@ -39,18 +38,15 @@ class UserStateManager:
             logger.info(f"Creating new state for user {user_phone} during update")
             self.user_states[user_phone] = self._create_initial_state()
         
-        # Log the current state before update
-        logger.info(f"Current state for {user_phone}: {self.user_states[user_phone]}")
-        
-        # Log the update
-        logger.info(f"Updating state for {user_phone} with: {updates}")
-        
-        # Update the state
+        old_state = self.user_states[user_phone].copy()
         self.user_states[user_phone].update(updates)
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        # Log the new state after update
-        logger.info(f"New state for {user_phone}: {self.user_states[user_phone]}")
+        # Log state transitions
+        logger.info(f"State transition for {user_phone}:")
+        logger.info(f"  From: {old_state['stage']}")
+        logger.info(f"  To: {self.user_states[user_phone]['stage']}")
+        logger.info(f"  Full state: {self.user_states[user_phone]}")
     
     def reset_user_state(self, user_phone: str) -> None:
         """

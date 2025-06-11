@@ -6,7 +6,10 @@ from app.services.exam_flow import ExamFlowManager
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -36,14 +39,18 @@ async def whatsapp_webhook(
     try:
         # Get user's current state
         user_state = state_manager.get_user_state(user_phone)
-        current_stage = user_state.get('stage', 'initial')
+        logger.info(f"Current state for {user_phone}: {user_state['stage']}")
+        logger.info(f"Processing message: {message_body}")
+        logger.info(f"Full state data: {user_state}")
         
-        logger.info(f"User {user_phone} current stage: {current_stage}")
-        logger.info(f"User message: '{message_body}'")
-        
-        # Handle global commands first
-        if message_body in ['start', 'restart']:
-            logger.info(f"User {user_phone} starting/restarting")
+        # Handle different states
+        if user_state['stage'] == 'initial' or message_body == 'start':
+            # User is starting fresh or explicitly restarting
+            response_text = exam_flow.start_conversation(user_phone)
+            
+        elif message_body == 'restart':
+            # User wants to restart
+            state_manager.reset_user_state(user_phone)
             response_text = exam_flow.start_conversation(user_phone)
             
         elif message_body == 'exit':
