@@ -19,11 +19,17 @@ class ExamFlowManager:
         """
         Start a new conversation with the user
         """
+        logger.info(f"Starting conversation for {user_phone}")
+        
         # Reset user state
         self.state_manager.reset_user_state(user_phone)
         
-        # Update state to exam selection
+        # Update state to exam selection - this is crucial!
         self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
+        
+        # Verify the state was updated
+        current_state = self.state_manager.get_user_state(user_phone)
+        logger.info(f"State after starting conversation: {current_state}")
         
         # Get available exams
         exams = get_available_exams()
@@ -41,7 +47,11 @@ class ExamFlowManager:
         """
         Handle exam selection
         """
-        logger.info(f"Handling exam selection for {user_phone}: {message}")
+        logger.info(f"Handling exam selection for {user_phone}: '{message}'")
+        
+        # Get current state to verify we're in the right stage
+        current_state = self.state_manager.get_user_state(user_phone)
+        logger.info(f"Current state before exam selection: {current_state}")
         
         exams = get_available_exams()
         
@@ -56,7 +66,7 @@ class ExamFlowManager:
                 selected_exam = exams[choice]
                 logger.info(f"Selected exam: {selected_exam}")
                 
-                # Update user state
+                # Update user state to subject selection
                 self.state_manager.update_user_state(user_phone, {
                     'exam': selected_exam,
                     'stage': 'selecting_subject'
@@ -64,7 +74,7 @@ class ExamFlowManager:
                 
                 # Verify state was updated
                 updated_state = self.state_manager.get_user_state(user_phone)
-                logger.info(f"Updated state: {updated_state}")
+                logger.info(f"State after exam selection: {updated_state}")
                 
                 # Get available subjects for this exam
                 subjects = get_available_subjects(selected_exam)
@@ -84,7 +94,7 @@ class ExamFlowManager:
                 return f"Invalid choice. Please select a number between 1 and {len(exams)}."
                 
         except ValueError:
-            logger.warning(f"Invalid input for exam selection: {message}")
+            logger.warning(f"Invalid input for exam selection: '{message}'")
             return f"Please enter a valid number between 1 and {len(exams)}."
         except Exception as e:
             logger.error(f"Error in exam selection: {str(e)}")
@@ -94,13 +104,17 @@ class ExamFlowManager:
         """
         Handle subject selection
         """
-        logger.info(f"Handling subject selection for {user_phone}: {message}")
+        logger.info(f"Handling subject selection for {user_phone}: '{message}'")
         
         user_state = self.state_manager.get_user_state(user_phone)
+        logger.info(f"Current state before subject selection: {user_state}")
+        
         exam = user_state.get('exam')
         
         if not exam:
             logger.error(f"No exam found in state for {user_phone}")
+            # Reset to start
+            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
             return "Session expired. Please send 'start' to begin again."
         
         subjects = get_available_subjects(exam)
@@ -119,7 +133,7 @@ class ExamFlowManager:
                 selected_subject = subjects[choice]
                 logger.info(f"Selected subject: {selected_subject}")
                 
-                # Update user state
+                # Update user state to year selection
                 self.state_manager.update_user_state(user_phone, {
                     'subject': selected_subject,
                     'stage': 'selecting_year'
@@ -127,7 +141,7 @@ class ExamFlowManager:
                 
                 # Verify state was updated
                 updated_state = self.state_manager.get_user_state(user_phone)
-                logger.info(f"Updated state: {updated_state}")
+                logger.info(f"State after subject selection: {updated_state}")
                 
                 # Get available years for this exam/subject
                 years = get_available_years(exam, selected_subject)
@@ -147,7 +161,7 @@ class ExamFlowManager:
                 return f"Invalid choice. Please select a number between 1 and {len(subjects)}."
                 
         except ValueError:
-            logger.warning(f"Invalid input for subject selection: {message}")
+            logger.warning(f"Invalid input for subject selection: '{message}'")
             return f"Please enter a valid number between 1 and {len(subjects)}."
         except Exception as e:
             logger.error(f"Error in subject selection: {str(e)}")
@@ -157,14 +171,17 @@ class ExamFlowManager:
         """
         Handle year selection and start the exam
         """
-        logger.info(f"Handling year selection for {user_phone}: {message}")
+        logger.info(f"Handling year selection for {user_phone}: '{message}'")
         
         user_state = self.state_manager.get_user_state(user_phone)
+        logger.info(f"Current state before year selection: {user_state}")
+        
         exam = user_state.get('exam')
         subject = user_state.get('subject')
         
         if not exam or not subject:
             logger.error(f"Missing exam or subject in state for {user_phone}")
+            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
             return "Session expired. Please send 'start' to begin again."
         
         years = get_available_years(exam, subject)
@@ -195,7 +212,7 @@ class ExamFlowManager:
                 # Shuffle questions for variety
                 random.shuffle(questions)
                 
-                # Update user state
+                # Update user state to taking exam
                 self.state_manager.update_user_state(user_phone, {
                     'year': selected_year,
                     'stage': 'taking_exam',
@@ -207,7 +224,7 @@ class ExamFlowManager:
                 
                 # Verify state was updated
                 updated_state = self.state_manager.get_user_state(user_phone)
-                logger.info(f"Final updated state: {updated_state}")
+                logger.info(f"Final state after year selection: {updated_state}")
                 
                 # Send first question
                 return self._send_current_question(user_phone)
@@ -215,7 +232,7 @@ class ExamFlowManager:
                 return f"Invalid choice. Please select a number between 1 and {len(years)}."
                 
         except ValueError:
-            logger.warning(f"Invalid input for year selection: {message}")
+            logger.warning(f"Invalid input for year selection: '{message}'")
             return f"Please enter a valid number between 1 and {len(years)}."
         except Exception as e:
             logger.error(f"Error in year selection: {str(e)}")
@@ -225,7 +242,7 @@ class ExamFlowManager:
         """
         Handle user's answer to a question
         """
-        logger.info(f"Handling answer for {user_phone}: {message}")
+        logger.info(f"Handling answer for {user_phone}: '{message}'")
         
         user_state = self.state_manager.get_user_state(user_phone)
         questions = user_state.get('questions', [])

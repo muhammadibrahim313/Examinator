@@ -28,7 +28,8 @@ class UserStateManager:
         # Update last activity
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        return self.user_states[user_phone].copy()  # Return a copy to prevent external modifications
+        # Return the actual state object, not a copy
+        return self.user_states[user_phone]
     
     def update_user_state(self, user_phone: str, updates: Dict[str, Any]) -> None:
         """
@@ -38,14 +39,17 @@ class UserStateManager:
             logger.info(f"Creating new state for user {user_phone} during update")
             self.user_states[user_phone] = self._create_initial_state()
         
+        # Log the current state before update
+        logger.info(f"Current state for {user_phone}: {self.user_states[user_phone]}")
+        
         # Log the update
-        logger.info(f"Updating state for {user_phone}: {updates}")
+        logger.info(f"Updating state for {user_phone} with: {updates}")
         
         # Update the state
         self.user_states[user_phone].update(updates)
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        # Log the new state
+        # Log the new state after update
         logger.info(f"New state for {user_phone}: {self.user_states[user_phone]}")
     
     def reset_user_state(self, user_phone: str) -> None:
