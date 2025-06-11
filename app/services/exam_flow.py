@@ -2,6 +2,10 @@ from app.services.state import UserStateManager
 from app.utils.helpers import load_exam_data, get_available_exams, get_available_subjects, get_available_years
 import random
 from typing import List, Dict, Any
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class ExamFlowManager:
     """
@@ -37,12 +41,20 @@ class ExamFlowManager:
         """
         Handle exam selection
         """
+        logger.info(f"Handling exam selection for {user_phone}: {message}")
+        
         exams = get_available_exams()
         
+        if not exams:
+            return "Sorry, no exams are currently available. Please contact support."
+        
         try:
-            choice = int(message) - 1
+            choice = int(message.strip()) - 1
+            logger.info(f"User choice: {choice}, Available exams: {exams}")
+            
             if 0 <= choice < len(exams):
                 selected_exam = exams[choice]
+                logger.info(f"Selected exam: {selected_exam}")
                 
                 # Update user state
                 self.state_manager.update_user_state(user_phone, {
@@ -50,10 +62,17 @@ class ExamFlowManager:
                     'stage': 'selecting_subject'
                 })
                 
+                # Verify state was updated
+                updated_state = self.state_manager.get_user_state(user_phone)
+                logger.info(f"Updated state: {updated_state}")
+                
                 # Get available subjects for this exam
                 subjects = get_available_subjects(selected_exam)
+                logger.info(f"Available subjects for {selected_exam}: {subjects}")
                 
                 if not subjects:
+                    # Reset to exam selection if no subjects
+                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
                     return f"Sorry, no subjects available for {selected_exam.upper()}. Please try another exam."
                 
                 subject_list = "\n".join([f"{i+1}. {subject}" for i, subject in enumerate(subjects)])
@@ -65,21 +84,40 @@ class ExamFlowManager:
                 return f"Invalid choice. Please select a number between 1 and {len(exams)}."
                 
         except ValueError:
+            logger.warning(f"Invalid input for exam selection: {message}")
             return f"Please enter a valid number between 1 and {len(exams)}."
+        except Exception as e:
+            logger.error(f"Error in exam selection: {str(e)}")
+            return "Sorry, something went wrong. Please try again."
     
     def handle_subject_selection(self, user_phone: str, message: str) -> str:
         """
         Handle subject selection
         """
+        logger.info(f"Handling subject selection for {user_phone}: {message}")
+        
         user_state = self.state_manager.get_user_state(user_phone)
         exam = user_state.get('exam')
         
+        if not exam:
+            logger.error(f"No exam found in state for {user_phone}")
+            return "Session expired. Please send 'start' to begin again."
+        
         subjects = get_available_subjects(exam)
+        logger.info(f"Available subjects for {exam}: {subjects}")
+        
+        if not subjects:
+            # Reset to exam selection
+            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
+            return f"Sorry, no subjects available for {exam.upper()}. Please send 'start' to try again."
         
         try:
-            choice = int(message) - 1
+            choice = int(message.strip()) - 1
+            logger.info(f"User choice: {choice}, Available subjects: {subjects}")
+            
             if 0 <= choice < len(subjects):
                 selected_subject = subjects[choice]
+                logger.info(f"Selected subject: {selected_subject}")
                 
                 # Update user state
                 self.state_manager.update_user_state(user_phone, {
@@ -87,10 +125,17 @@ class ExamFlowManager:
                     'stage': 'selecting_year'
                 })
                 
+                # Verify state was updated
+                updated_state = self.state_manager.get_user_state(user_phone)
+                logger.info(f"Updated state: {updated_state}")
+                
                 # Get available years for this exam/subject
                 years = get_available_years(exam, selected_subject)
+                logger.info(f"Available years for {exam} {selected_subject}: {years}")
                 
                 if not years:
+                    # Reset to subject selection if no years
+                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_subject'})
                     return f"Sorry, no years available for {exam.upper()} {selected_subject}. Please try another subject."
                 
                 year_list = "\n".join([f"{i+1}. {year}" for i, year in enumerate(years)])
@@ -102,28 +147,50 @@ class ExamFlowManager:
                 return f"Invalid choice. Please select a number between 1 and {len(subjects)}."
                 
         except ValueError:
+            logger.warning(f"Invalid input for subject selection: {message}")
             return f"Please enter a valid number between 1 and {len(subjects)}."
+        except Exception as e:
+            logger.error(f"Error in subject selection: {str(e)}")
+            return "Sorry, something went wrong. Please try again."
     
     def handle_year_selection(self, user_phone: str, message: str) -> str:
         """
         Handle year selection and start the exam
         """
+        logger.info(f"Handling year selection for {user_phone}: {message}")
+        
         user_state = self.state_manager.get_user_state(user_phone)
         exam = user_state.get('exam')
         subject = user_state.get('subject')
         
+        if not exam or not subject:
+            logger.error(f"Missing exam or subject in state for {user_phone}")
+            return "Session expired. Please send 'start' to begin again."
+        
         years = get_available_years(exam, subject)
+        logger.info(f"Available years for {exam} {subject}: {years}")
+        
+        if not years:
+            # Reset to subject selection
+            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_subject'})
+            return f"Sorry, no years available for {exam.upper()} {subject}. Please send 'start' to try again."
         
         try:
-            choice = int(message) - 1
+            choice = int(message.strip()) - 1
+            logger.info(f"User choice: {choice}, Available years: {years}")
+            
             if 0 <= choice < len(years):
                 selected_year = years[choice]
+                logger.info(f"Selected year: {selected_year}")
                 
                 # Load questions for this exam/subject/year
                 questions = load_exam_data(exam, subject, selected_year)
+                logger.info(f"Loaded {len(questions)} questions for {exam} {subject} {selected_year}")
                 
                 if not questions:
-                    return f"Sorry, no questions available for {exam.upper()} {subject} {selected_year}. Please try another combination."
+                    # Reset to year selection if no questions
+                    self.state_manager.update_user_state(user_phone, {'stage': 'selecting_year'})
+                    return f"Sorry, no questions available for {exam.upper()} {subject} {selected_year}. Please try another year."
                 
                 # Shuffle questions for variety
                 random.shuffle(questions)
@@ -138,36 +205,49 @@ class ExamFlowManager:
                     'score': 0
                 })
                 
+                # Verify state was updated
+                updated_state = self.state_manager.get_user_state(user_phone)
+                logger.info(f"Final updated state: {updated_state}")
+                
                 # Send first question
                 return self._send_current_question(user_phone)
             else:
                 return f"Invalid choice. Please select a number between 1 and {len(years)}."
                 
         except ValueError:
+            logger.warning(f"Invalid input for year selection: {message}")
             return f"Please enter a valid number between 1 and {len(years)}."
+        except Exception as e:
+            logger.error(f"Error in year selection: {str(e)}")
+            return "Sorry, something went wrong. Please try again."
     
     def handle_answer(self, user_phone: str, message: str) -> str:
         """
         Handle user's answer to a question
         """
+        logger.info(f"Handling answer for {user_phone}: {message}")
+        
         user_state = self.state_manager.get_user_state(user_phone)
         questions = user_state.get('questions', [])
         current_index = user_state.get('current_question_index', 0)
         
-        if current_index >= len(questions):
+        if not questions or current_index >= len(questions):
+            logger.error(f"No questions or invalid index for {user_phone}")
             return "No more questions available. Send 'start' to begin a new session."
         
         current_question = questions[current_index]
         
         # Validate answer format
         valid_answers = ['a', 'b', 'c', 'd']
-        if message not in valid_answers:
+        user_answer = message.strip().lower()
+        
+        if user_answer not in valid_answers:
             return ("Please reply with A, B, C, or D for your answer.\n\n" + 
                    self._format_question(current_question, current_index + 1, len(questions)))
         
         # Check if answer is correct
         correct_answer = current_question.get('correct_answer', '').lower()
-        is_correct = message == correct_answer
+        is_correct = user_answer == correct_answer
         
         # Update score if correct
         new_score = user_state.get('score', 0)
@@ -177,8 +257,10 @@ class ExamFlowManager:
         # Move to next question
         next_index = current_index + 1
         
-        # Prepare response
+        # Prepare response with explanation
+        explanation = current_question.get('explanation', 'No explanation available.')
         response = f"{'✅ Correct!' if is_correct else '❌ Wrong!'} The correct answer is {correct_answer.upper()}.\n\n"
+        response += f"💡 {explanation}\n\n"
         
         if next_index >= len(questions):
             # End of exam
@@ -235,7 +317,7 @@ class ExamFlowManager:
         if image_ref:
             formatted += f"📷 Image: {image_ref}\n\n"
         
-        # Add options
+        # Add options in order
         for key in ['A', 'B', 'C', 'D']:
             if key in options:
                 formatted += f"{key}. {options[key]}\n"

@@ -36,47 +36,61 @@ async def whatsapp_webhook(
     try:
         # Get user's current state
         user_state = state_manager.get_user_state(user_phone)
+        current_stage = user_state.get('stage', 'initial')
         
-        # Handle different states
-        if user_state['stage'] == 'initial' or message_body == 'start':
-            # User is starting fresh or explicitly restarting
-            response_text = exam_flow.start_conversation(user_phone)
-            
-        elif message_body == 'restart':
-            # User wants to restart
-            state_manager.reset_user_state(user_phone)
+        logger.info(f"User {user_phone} current stage: {current_stage}")
+        logger.info(f"User message: '{message_body}'")
+        
+        # Handle global commands first
+        if message_body in ['start', 'restart']:
+            logger.info(f"User {user_phone} starting/restarting")
             response_text = exam_flow.start_conversation(user_phone)
             
         elif message_body == 'exit':
-            # User wants to exit
+            logger.info(f"User {user_phone} exiting")
             state_manager.reset_user_state(user_phone)
             response_text = "Thanks for using the Exam Practice Bot! Send 'start' to begin a new session."
             
-        elif user_state['stage'] == 'selecting_exam':
-            # User is selecting an exam
+        elif message_body == 'help':
+            response_text = ("Available commands:\n"
+                           "• 'start' - Begin a new exam session\n"
+                           "• 'restart' - Restart current session\n"
+                           "• 'exit' - End current session\n"
+                           "• 'help' - Show this help message")
+            
+        # Handle stage-specific responses
+        elif current_stage == 'initial':
+            logger.info(f"User {user_phone} in initial stage, starting conversation")
+            response_text = exam_flow.start_conversation(user_phone)
+            
+        elif current_stage == 'selecting_exam':
+            logger.info(f"User {user_phone} selecting exam: {message_body}")
             response_text = exam_flow.handle_exam_selection(user_phone, message_body)
             
-        elif user_state['stage'] == 'selecting_subject':
-            # User is selecting a subject
+        elif current_stage == 'selecting_subject':
+            logger.info(f"User {user_phone} selecting subject: {message_body}")
             response_text = exam_flow.handle_subject_selection(user_phone, message_body)
             
-        elif user_state['stage'] == 'selecting_year':
-            # User is selecting a year
+        elif current_stage == 'selecting_year':
+            logger.info(f"User {user_phone} selecting year: {message_body}")
             response_text = exam_flow.handle_year_selection(user_phone, message_body)
             
-        elif user_state['stage'] == 'taking_exam':
-            # User is answering questions
+        elif current_stage == 'taking_exam':
+            logger.info(f"User {user_phone} answering question: {message_body}")
             response_text = exam_flow.handle_answer(user_phone, message_body)
             
         else:
-            # Unknown state or command
+            logger.warning(f"Unknown stage for user {user_phone}: {current_stage}")
             response_text = ("I didn't understand that. Send 'start' to begin, "
-                           "'restart' to start over, or 'exit' to quit.")
+                           "'restart' to start over, 'help' for commands, or 'exit' to quit.")
+        
+        # Log the response being sent
+        logger.info(f"Sending response to {user_phone}: {response_text[:100]}...")
         
         msg.body(response_text)
         
     except Exception as e:
-        logger.error(f"Error processing message from {user_phone}: {str(e)}")
+        logger.error(f"Error processing message from {user_phone}: {str(e)}", exc_info=True)
         msg.body("Sorry, something went wrong. Please try again or send 'restart' to start over.")
     
     return Response(content=str(response), media_type="application/xml")

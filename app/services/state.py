@@ -1,5 +1,9 @@
 from typing import Dict, Any
 import time
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class UserStateManager:
     """
@@ -18,34 +22,44 @@ class UserStateManager:
         self._cleanup_expired_sessions()
         
         if user_phone not in self.user_states:
+            logger.info(f"Creating new state for user {user_phone}")
             self.user_states[user_phone] = self._create_initial_state()
         
         # Update last activity
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        return self.user_states[user_phone]
+        return self.user_states[user_phone].copy()  # Return a copy to prevent external modifications
     
     def update_user_state(self, user_phone: str, updates: Dict[str, Any]) -> None:
         """
         Update user's state with new values
         """
         if user_phone not in self.user_states:
+            logger.info(f"Creating new state for user {user_phone} during update")
             self.user_states[user_phone] = self._create_initial_state()
         
+        # Log the update
+        logger.info(f"Updating state for {user_phone}: {updates}")
+        
+        # Update the state
         self.user_states[user_phone].update(updates)
         self.user_states[user_phone]['last_activity'] = time.time()
+        
+        # Log the new state
+        logger.info(f"New state for {user_phone}: {self.user_states[user_phone]}")
     
     def reset_user_state(self, user_phone: str) -> None:
         """
         Reset user's state to initial values
         """
+        logger.info(f"Resetting state for user {user_phone}")
         self.user_states[user_phone] = self._create_initial_state()
     
     def _create_initial_state(self) -> Dict[str, Any]:
         """
         Create initial state for a new user
         """
-        return {
+        initial_state = {
             'stage': 'initial',  # initial, selecting_exam, selecting_subject, selecting_year, taking_exam
             'exam': None,
             'subject': None,
@@ -56,6 +70,8 @@ class UserStateManager:
             'questions': [],
             'last_activity': time.time()
         }
+        logger.info(f"Created initial state: {initial_state}")
+        return initial_state
     
     def _cleanup_expired_sessions(self) -> None:
         """
@@ -68,6 +84,7 @@ class UserStateManager:
         ]
         
         for user_phone in expired_users:
+            logger.info(f"Removing expired session for user {user_phone}")
             del self.user_states[user_phone]
     
     def get_all_active_users(self) -> int:
@@ -76,3 +93,9 @@ class UserStateManager:
         """
         self._cleanup_expired_sessions()
         return len(self.user_states)
+    
+    def debug_user_state(self, user_phone: str) -> Dict[str, Any]:
+        """
+        Get user state for debugging purposes
+        """
+        return self.user_states.get(user_phone, {})
