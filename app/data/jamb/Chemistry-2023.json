@@ -1,0 +1,67 @@
+{
+  "exam": "JAMB",
+  "subject": "Chemistry",
+  "year": "2023", 
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is the atomic number of carbon?",
+      "options": {
+        "A": "4",
+        "B": "6",
+        "C": "8",
+        "D": "12"
+      },
+      "correct_answer": "B",
+      "explanation": "Carbon has an atomic number of 6, meaning it has 6 protons in its nucleus."
+    },
+    {
+      "id": 2,
+      "question": "Which of the following is a noble gas?",
+      "options": {
+        "A": "Oxygen",
+        "B": "Nitrogen", 
+        "C": "Helium",
+        "D": "Hydrogen"
+      },
+      "correct_answer": "C",
+      "explanation": "Helium is a noble gas with a complete outer electron shell, making it chemically inert."
+    },
+    {
+      "id": 3,
+      "question": "What is the chemical formula for water?",
+      "options": {
+        "A": "H2O",
+        "B": "CO2",
+        "C": "NaCl",
+        "D": "CH4"
+      },
+      "correct_answer": "A",
+      "explanation": "Water has the chemical formula H2O, consisting of two hydrogen atoms and one oxygen atom."
+    },
+    {
+      "id": 4,
+      "question": "Which type of bond is formed when electrons are shared between atoms?",
+      "options": {
+        "A": "Ionic bond",
+        "B": "Covalent bond",
+        "C": "Metallic bond",
+        "D": "Hydrogen bond"
+      },
+      "correct_answer": "B",
+      "explanation": "Covalent bonds are formed when atoms share electrons to achieve stable electron configurations."
+    },
+    {
+      "id": 5,
+      "question": "What is the pH of pure water at 25°C?",
+      "options": {
+        "A": "6",
+        "B": "7",
+        "C": "8",
+        "D": "9"
+      },
+      "correct_answer": "B",
+      "explanation": "Pure water has a pH of 7 at 25°C, which is considered neutral."
+    }
+  ]
+}
