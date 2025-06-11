@@ -20,8 +20,11 @@ class JAMBExamType(BaseExamType):
     
     def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Handle JAMB-specific stages
+        Handle JAMB-specific stages with proper state transitions
         """
+        self.logger.info(f"Handling JAMB stage '{stage}' for {user_phone} with message '{message}'")
+        self.logger.info(f"Current user state: {user_state}")
+        
         if stage == 'selecting_subject':
             return self._handle_subject_selection(user_phone, message, user_state)
         elif stage == 'selecting_year':
@@ -29,10 +32,11 @@ class JAMBExamType(BaseExamType):
         elif stage == 'taking_exam':
             return self._handle_answer(user_phone, message, user_state)
         else:
+            self.logger.error(f"Unknown JAMB stage: {stage}")
             return {
                 'response': f"Unknown stage: {stage}. Please send 'restart' to start over.",
                 'next_stage': 'selecting_subject',
-                'state_updates': {}
+                'state_updates': {'stage': 'selecting_subject'}
             }
     
     def validate_stage_input(self, stage: str, message: str, user_state: Dict[str, Any]) -> bool:
@@ -96,11 +100,16 @@ class JAMBExamType(BaseExamType):
                     'state_updates': {}
                 }
             
+            # Format years list
+            years_text = self.format_options_list(years, "Available years")
+            
             return {
-                'response': f"✅ You selected: {selected_subject}\n\n" + 
-                           self.format_options_list(years, "Available years"),
+                'response': f"✅ You selected: {selected_subject}\n\n{years_text}",
                 'next_stage': 'selecting_year',
-                'state_updates': {'subject': selected_subject}
+                'state_updates': {
+                    'subject': selected_subject,
+                    'stage': 'selecting_year'  # Explicitly set the stage
+                }
             }
         else:
             return {
@@ -116,10 +125,11 @@ class JAMBExamType(BaseExamType):
         """
         subject = user_state.get('subject')
         if not subject:
+            self.logger.error(f"No subject found in state for {user_phone}")
             return {
                 'response': "Session error. Please send 'restart' to start over.",
                 'next_stage': 'selecting_subject',
-                'state_updates': {}
+                'state_updates': {'stage': 'selecting_subject'}
             }
         
         years = get_available_years('jamb', subject)
@@ -152,6 +162,7 @@ class JAMBExamType(BaseExamType):
                 'next_stage': 'taking_exam',
                 'state_updates': {
                     'year': selected_year,
+                    'stage': 'taking_exam',  # Explicitly set the stage
                     'questions': questions,
                     'total_questions': len(questions),
                     'current_question_index': 0,
@@ -177,7 +188,7 @@ class JAMBExamType(BaseExamType):
             return {
                 'response': "No more questions available. Send 'start' to begin a new session.",
                 'next_stage': 'completed',
-                'state_updates': {}
+                'state_updates': {'stage': 'completed'}
             }
         
         current_question = questions[current_index]
@@ -219,7 +230,10 @@ class JAMBExamType(BaseExamType):
             return {
                 'response': response,
                 'next_stage': 'completed',
-                'state_updates': {'score': new_score}
+                'state_updates': {
+                    'score': new_score,
+                    'stage': 'completed'
+                }
             }
         else:
             # Continue with next question

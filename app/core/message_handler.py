@@ -226,11 +226,20 @@ class ExamTypeHandler(MessageHandler):
             # Handle the current stage
             result = exam_type.handle_stage(stage, user_phone, message, user_state)
             
+            # Get state updates from result
+            state_updates = result.get('state_updates', {})
+            next_stage = result.get('next_stage')
+            
+            # If next_stage is provided, add it to state updates
+            if next_stage and next_stage != stage:
+                state_updates['stage'] = next_stage
+                logger.info(f"Stage transition for {user_phone}: {stage} -> {next_stage}")
+            
             # Convert exam type result to our handler format
             return {
                 'response': result.get('response', 'No response generated.'),
-                'state_updates': result.get('state_updates', {}),
-                'next_handler': f'{exam}_handler' if result.get('next_stage') != 'completed' else None
+                'state_updates': state_updates,
+                'next_handler': f'{exam}_handler' if next_stage != 'completed' else None
             }
             
         except ValueError as e:
