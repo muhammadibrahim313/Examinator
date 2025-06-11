@@ -17,36 +17,44 @@ class UserStateManager:
         """
         Get user's current state, creating a new one if doesn't exist
         """
-        # Clean up expired sessions
+        # Clean up expired sessions first
         self._cleanup_expired_sessions()
         
+        # If user doesn't exist, create new state
         if user_phone not in self.user_states:
             logger.info(f"Creating new state for user {user_phone}")
             self.user_states[user_phone] = self._create_initial_state()
         
-        # Update last activity
+        # Update last activity timestamp
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        # Return the actual state object, not a copy
+        # Log current state for debugging
+        current_stage = self.user_states[user_phone].get('stage', 'unknown')
+        logger.info(f"Retrieved state for {user_phone}: stage={current_stage}")
+        
+        # Return the existing state (not a copy)
         return self.user_states[user_phone]
     
     def update_user_state(self, user_phone: str, updates: Dict[str, Any]) -> None:
         """
         Update user's state with new values
         """
+        # Ensure user state exists
         if user_phone not in self.user_states:
             logger.info(f"Creating new state for user {user_phone} during update")
             self.user_states[user_phone] = self._create_initial_state()
         
-        old_state = self.user_states[user_phone].copy()
+        # Store old state for logging
+        old_stage = self.user_states[user_phone].get('stage', 'unknown')
+        
+        # Apply updates
         self.user_states[user_phone].update(updates)
         self.user_states[user_phone]['last_activity'] = time.time()
         
-        # Log state transitions
-        logger.info(f"State transition for {user_phone}:")
-        logger.info(f"  From: {old_state['stage']}")
-        logger.info(f"  To: {self.user_states[user_phone]['stage']}")
-        logger.info(f"  Full state: {self.user_states[user_phone]}")
+        # Log state transition
+        new_stage = self.user_states[user_phone].get('stage', 'unknown')
+        logger.info(f"State updated for {user_phone}: {old_stage} -> {new_stage}")
+        logger.info(f"Full updated state: {self.user_states[user_phone]}")
     
     def reset_user_state(self, user_phone: str) -> None:
         """
@@ -54,16 +62,19 @@ class UserStateManager:
         """
         logger.info(f"Resetting state for user {user_phone}")
         self.user_states[user_phone] = self._create_initial_state()
+        logger.info(f"State reset complete for {user_phone}")
     
     def _create_initial_state(self) -> Dict[str, Any]:
         """
         Create initial state for a new user
         """
         initial_state = {
-            'stage': 'initial',  # initial, selecting_exam, selecting_subject, selecting_year, taking_exam
+            'stage': 'initial',
             'exam': None,
             'subject': None,
             'year': None,
+            'section': None,  # For SAT
+            'difficulty': None,  # For SAT
             'current_question_index': 0,
             'score': 0,
             'total_questions': 0,

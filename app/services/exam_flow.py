@@ -20,12 +20,15 @@ class ExamFlowManager:
         """
         logger.info(f"Starting new conversation for user {user_phone}")
         
-        # Reset user state
+        # Reset user state to ensure clean start
         self.state_manager.reset_user_state(user_phone)
         
-        # Update state to exam selection
+        # Update state to exam selection stage
         self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
-        logger.info(f"Updated state to selecting_exam for user {user_phone}")
+        
+        # Verify state was updated
+        current_state = self.state_manager.get_user_state(user_phone)
+        logger.info(f"State after start_conversation: {current_state.get('stage')}")
         
         # Get available exams
         exams = self.exam_registry.get_available_exams()
@@ -46,6 +49,15 @@ class ExamFlowManager:
         Handle exam selection
         """
         logger.info(f"Handling exam selection for {user_phone}: {message}")
+        
+        # Verify we're in the right state
+        user_state = self.state_manager.get_user_state(user_phone)
+        current_stage = user_state.get('stage')
+        
+        if current_stage != 'selecting_exam':
+            logger.warning(f"User {user_phone} not in selecting_exam stage (current: {current_stage})")
+            return "Session error. Please send 'start' to begin again."
+        
         exams = self.exam_registry.get_available_exams()
         
         if not exams:
@@ -53,7 +65,7 @@ class ExamFlowManager:
         
         try:
             choice = int(message.strip()) - 1
-            logger.info(f"Parsed choice: {choice}")
+            logger.info(f"Parsed choice: {choice} from message: '{message}'")
             
             if 0 <= choice < len(exams):
                 selected_exam = exams[choice]
@@ -65,15 +77,19 @@ class ExamFlowManager:
                     initial_stage = exam_type.get_initial_stage()
                     
                     # Update user state with exam and initial stage
-                    self.state_manager.update_user_state(user_phone, {
+                    state_updates = {
                         'exam': selected_exam,
                         'stage': initial_stage
-                    })
-                    logger.info(f"User {user_phone} selected exam {selected_exam}, moving to stage {initial_stage}")
+                    }
+                    
+                    self.state_manager.update_user_state(user_phone, state_updates)
+                    
+                    # Verify state update
+                    updated_state = self.state_manager.get_user_state(user_phone)
+                    logger.info(f"State after exam selection: exam={updated_state.get('exam')}, stage={updated_state.get('stage')}")
                     
                     # Get initial options for the first stage
-                    user_state = self.state_manager.get_user_state(user_phone)
-                    options = exam_type.get_available_options(initial_stage, user_state)
+                    options = exam_type.get_available_options(initial_stage, updated_state)
                     
                     if not options:
                         return f"Sorry, no options available for {selected_exam.upper()}. Please try another exam."
@@ -123,9 +139,10 @@ class ExamFlowManager:
             # Handle the current stage
             result = exam_type.handle_stage(stage, user_phone, message, user_state)
             
-            # Apply state updates
+            # Apply state updates if provided
             if result.get('state_updates'):
                 self.state_manager.update_user_state(user_phone, result['state_updates'])
+                logger.info(f"Applied state updates for {user_phone}: {result['state_updates']}")
             
             # Update stage if changed
             if result.get('next_stage') and result['next_stage'] != stage:
