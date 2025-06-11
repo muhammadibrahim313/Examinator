@@ -89,111 +89,137 @@ def setup_ngrok_auth():
         return False
 
 def wait_for_ngrok_api():
-    """Wait for ngrok API to be available"""
+    """Wait for ngrok API to be available on port 4040"""
     max_attempts = 10
     for attempt in range(max_attempts):
         try:
             response = requests.get('http://localhost:4040/api/tunnels', timeout=2)
             if response.status_code == 200:
+                print("✅ ngrok API is available")
                 return True
-        except:
+        except requests.exceptions.RequestException:
             pass
         
         if attempt < max_attempts - 1:
             print(f"⏳ Waiting for ngrok API... (attempt {attempt + 1}/{max_attempts})")
             time.sleep(2)
     
+    print("❌ ngrok API did not become available on port 4040")
     return False
 
 def get_tunnel_info():
-    """Get tunnel information from ngrok API"""
+    """Get tunnel information from ngrok API (port 4040) for tunnels pointing to port 8000"""
     try:
         response = requests.get('http://localhost:4040/api/tunnels', timeout=5)
         if response.status_code == 200:
             data = response.json()
             tunnels = data.get('tunnels', [])
             
-            # Look for HTTP tunnel on port 8000
+            print(f"📊 Found {len(tunnels)} active tunnel(s)")
+            
+            # Look for HTTP tunnel pointing to port 8000
             for tunnel in tunnels:
                 config = tunnel.get('config', {})
-                if config.get('addr') == 'http://localhost:8000':
-                    return tunnel.get('public_url')
+                addr = config.get('addr', '')
+                public_url = tunnel.get('public_url', '')
+                
+                print(f"🔍 Checking tunnel: {public_url} -> {addr}")
+                
+                # Check if this tunnel points to our FastAPI server (port 8000)
+                if 'localhost:8000' in addr or ':8000' in addr:
+                    if public_url.startswith('https://'):
+                        print(f"✅ Found HTTPS tunnel for port 8000: {public_url}")
+                        return public_url
             
-            # If no specific port 8000 tunnel, return the first HTTPS tunnel
+            # If no port 8000 tunnel found, return the first HTTPS tunnel
             for tunnel in tunnels:
                 public_url = tunnel.get('public_url', '')
                 if public_url.startswith('https://'):
+                    print(f"⚠️  Using first available HTTPS tunnel: {public_url}")
                     return public_url
             
+            print("❌ No HTTPS tunnels found")
             return None
         else:
             print(f"❌ ngrok API returned status code: {response.status_code}")
             return None
     except requests.exceptions.RequestException as e:
-        print(f"❌ Could not connect to ngrok API: {e}")
+        print(f"❌ Could not connect to ngrok API on port 4040: {e}")
         return None
     except Exception as e:
         print(f"❌ Error getting tunnel info: {e}")
         return None
 
+def check_existing_tunnel():
+    """Check if ngrok is already running with a tunnel to port 8000"""
+    try:
+        response = requests.get('http://localhost:4040/api/tunnels', timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            existing_tunnels = data.get('tunnels', [])
+            
+            # Check if we already have a tunnel for port 8000
+            for tunnel in existing_tunnels:
+                config = tunnel.get('config', {})
+                addr = config.get('addr', '')
+                if 'localhost:8000' in addr or ':8000' in addr:
+                    public_url = tunnel.get('public_url', '')
+                    if public_url.startswith('https://'):
+                        return public_url
+            return None
+    except:
+        return None
+
 def start_ngrok_tunnel():
     """Start ngrok tunnel for port 8000"""
     print("\n🚀 Starting ngrok tunnel...")
-    print("This will create a public URL for your local server on port 8000")
+    print("This will create a public URL that forwards to your local server on port 8000")
+    
+    # Check if ngrok is already running with our tunnel
+    existing_url = check_existing_tunnel()
+    if existing_url:
+        print("✅ ngrok tunnel already running!")
+        print(f"🌐 Public URL: {existing_url}")
+        print(f"📱 WhatsApp webhook URL: {existing_url}/webhook/whatsapp")
+        
+        # Save URL to file
+        with open('ngrok_url.txt', 'w') as f:
+            f.write(f"Public URL: {existing_url}\n")
+            f.write(f"Webhook URL: {existing_url}/webhook/whatsapp\n")
+        
+        return existing_url
     
     try:
-        # Check if ngrok is already running
-        try:
-            response = requests.get('http://localhost:4040/api/tunnels', timeout=2)
-            if response.status_code == 200:
-                data = response.json()
-                existing_tunnels = data.get('tunnels', [])
-                
-                # Check if we already have a tunnel for port 8000
-                for tunnel in existing_tunnels:
-                    config = tunnel.get('config', {})
-                    if config.get('addr') == 'http://localhost:8000':
-                        public_url = tunnel.get('public_url')
-                        print("✅ ngrok tunnel already running!")
-                        print(f"🌐 Public URL: {public_url}")
-                        print(f"📱 WhatsApp webhook URL: {public_url}/webhook/whatsapp")
-                        
-                        # Save URL to file
-                        with open('ngrok_url.txt', 'w') as f:
-                            f.write(f"Public URL: {public_url}\n")
-                            f.write(f"Webhook URL: {public_url}/webhook/whatsapp\n")
-                        
-                        return public_url
-        except:
-            pass  # ngrok not running, continue to start it
-        
-        # Start ngrok in background
-        print("⏳ Starting ngrok tunnel...")
+        # Start ngrok tunnel pointing to port 8000
+        print("⏳ Starting ngrok tunnel to localhost:8000...")
         process = subprocess.Popen(['ngrok', 'http', '8000'], 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE)
         
-        # Wait for ngrok to start and API to be available
+        # Wait for ngrok API to be available on port 4040
         if not wait_for_ngrok_api():
             print("❌ ngrok API did not become available")
+            print("💡 Try checking manually at http://localhost:4040")
             return None
         
-        # Get tunnel information
+        # Get tunnel information from API
         public_url = get_tunnel_info()
         
         if public_url:
             print("✅ ngrok tunnel started successfully!")
             print(f"🌐 Public URL: {public_url}")
             print(f"📱 WhatsApp webhook URL: {public_url}/webhook/whatsapp")
+            print(f"🔧 ngrok web interface: http://localhost:4040")
             
             # Save URL to file for reference
             with open('ngrok_url.txt', 'w') as f:
                 f.write(f"Public URL: {public_url}\n")
                 f.write(f"Webhook URL: {public_url}/webhook/whatsapp\n")
+                f.write(f"ngrok Web Interface: http://localhost:4040\n")
             
             return public_url
         else:
-            print("❌ Could not get tunnel URL")
+            print("❌ Could not get tunnel URL from API")
             print("💡 Try checking the ngrok web interface at http://localhost:4040")
             return None
         
@@ -233,6 +259,11 @@ def install_ngrok_instructions():
 def main():
     print("🤖 WhatsApp Bot - ngrok Setup")
     print("=" * 40)
+    print("📋 Port Configuration:")
+    print("   • FastAPI Server: localhost:8000 (your app)")
+    print("   • ngrok API: localhost:4040 (management)")
+    print("   • ngrok tunnel: public URL -> localhost:8000")
+    print()
     
     # Check if ngrok is installed
     if not check_ngrok_installed():
@@ -266,13 +297,15 @@ def main():
         print("- Keep this terminal open to maintain the tunnel")
         print("- ngrok web interface: http://localhost:4040")
         print("- URL saved to: ngrok_url.txt")
+        print("- Your FastAPI server should run on port 8000")
     else:
         print("❌ Failed to start ngrok tunnel")
         print("\n🔧 Troubleshooting:")
         print("1. Make sure your authtoken is correct")
-        print("2. Check if port 4040 is available")
+        print("2. Check if port 4040 is available (ngrok web interface)")
         print("3. Try restarting ngrok manually: ngrok http 8000")
         print("4. Check ngrok web interface: http://localhost:4040")
+        print("5. Make sure no other ngrok processes are running")
 
 if __name__ == "__main__":
     main()
