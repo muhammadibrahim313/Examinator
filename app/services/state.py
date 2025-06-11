@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 class UserStateManager:
     """
-    Manages user session state in memory
+    Manages user session state in memory with improved persistence and validation
     """
     
     def __init__(self):
@@ -20,53 +20,67 @@ class UserStateManager:
         # Clean up expired sessions first
         self._cleanup_expired_sessions()
         
-        # CRITICAL: Only create new state if user doesn't exist
-        if user_phone not in self.user_states:
+        current_state = self.user_states.get(user_phone)
+        
+        # Only create new state if user doesn't exist
+        if current_state is None:
             logger.info(f"Creating new state for user {user_phone}")
-            self.user_states[user_phone] = self._create_initial_state()
+            current_state = self._create_initial_state()
+            self.user_states[user_phone] = current_state
         else:
-            # User exists, just update last activity
-            self.user_states[user_phone]['last_activity'] = time.time()
+            # Update last activity without changing other state
+            current_state['last_activity'] = time.time()
+            logger.info(f"Retrieved existing state for {user_phone}: {current_state}")
         
-        # Log current state for debugging
-        current_stage = self.user_states[user_phone].get('stage', 'unknown')
-        logger.info(f"Retrieved state for {user_phone}: stage={current_stage}")
-        
-        # Return the existing state (NEVER create a new one here)
-        return self.user_states[user_phone]
+        return current_state.copy()  # Return a copy to prevent accidental direct modifications
     
     def update_user_state(self, user_phone: str, updates: Dict[str, Any]) -> None:
         """
-        Update user's state with new values
+        Update user's state with new values, ensuring state consistency
         """
-        # Ensure user state exists (but don't overwrite existing state)
-        if user_phone not in self.user_states:
-            logger.info(f"Creating new state for user {user_phone} during update")
-            self.user_states[user_phone] = self._create_initial_state()
+        if not isinstance(updates, dict):
+            logger.error(f"Invalid state update for {user_phone}: updates must be a dictionary")
+            return
+            
+        # Get existing state or create new one
+        current_state = self.user_states.get(user_phone)
+        if current_state is None:
+            current_state = self._create_initial_state()
+            self.user_states[user_phone] = current_state
         
-        # Store old state for logging
-        old_stage = self.user_states[user_phone].get('stage', 'unknown')
+        # Store old values for logging
+        old_stage = current_state.get('stage', 'unknown')
+        old_exam = current_state.get('exam')
         
-        # Apply updates to EXISTING state
-        self.user_states[user_phone].update(updates)
-        self.user_states[user_phone]['last_activity'] = time.time()
+        # Update timestamp first to prevent expiration during update
+        updates['last_activity'] = time.time()
         
-        # Log state transition
-        new_stage = self.user_states[user_phone].get('stage', 'unknown')
-        logger.info(f"State updated for {user_phone}: {old_stage} -> {new_stage}")
-        logger.info(f"Full updated state: {self.user_states[user_phone]}")
+        # Update state
+        current_state.update(updates)
+        
+        # Log state changes
+        new_stage = current_state.get('stage', 'unknown')
+        new_exam = current_state.get('exam')
+        
+        logger.info(f"State update for {user_phone}:")
+        if old_stage != new_stage:
+            logger.info(f"Stage changed: {old_stage} -> {new_stage}")
+        if old_exam != new_exam:
+            logger.info(f"Exam changed: {old_exam} -> {new_exam}")
+        logger.info(f"Full state after update: {current_state}")
     
     def reset_user_state(self, user_phone: str) -> None:
         """
         Reset user's state to initial values
         """
         logger.info(f"Resetting state for user {user_phone}")
-        self.user_states[user_phone] = self._create_initial_state()
-        logger.info(f"State reset complete for {user_phone}")
+        initial_state = self._create_initial_state()
+        self.user_states[user_phone] = initial_state
+        logger.info(f"State reset complete. New state: {initial_state}")
     
     def _create_initial_state(self) -> Dict[str, Any]:
         """
-        Create initial state for a new user
+        Create initial state for a new user with mandatory fields
         """
         initial_state = {
             'stage': 'initial',
@@ -81,12 +95,11 @@ class UserStateManager:
             'questions': [],
             'last_activity': time.time()
         }
-        logger.info(f"Created initial state: {initial_state}")
-        return initial_state
+        return initial_state.copy()  # Return a copy to ensure each user gets a fresh state
     
     def _cleanup_expired_sessions(self) -> None:
         """
-        Remove expired user sessions
+        Remove expired user sessions and log removals
         """
         current_time = time.time()
         expired_users = [
@@ -95,8 +108,12 @@ class UserStateManager:
         ]
         
         for user_phone in expired_users:
-            logger.info(f"Removing expired session for user {user_phone}")
+            expired_state = self.user_states[user_phone]
+            logger.info(f"Removing expired session for {user_phone}. Last state: {expired_state}")
             del self.user_states[user_phone]
+            
+        if expired_users:
+            logger.info(f"Cleaned up {len(expired_users)} expired sessions")
     
     def get_all_active_users(self) -> int:
         """

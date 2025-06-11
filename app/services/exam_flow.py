@@ -20,15 +20,13 @@ class ExamFlowManager:
         """
         logger.info(f"Starting new conversation for user {user_phone}")
         
-        # Reset user state to ensure clean start
+        # Reset user state and immediately get the fresh state
         self.state_manager.reset_user_state(user_phone)
+        user_state = self.state_manager.get_user_state(user_phone)
         
         # Update state to exam selection stage
-        self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
-        
-        # Verify state was updated (access directly, don't call get_user_state again)
-        current_state = self.state_manager.user_states.get(user_phone, {})
-        logger.info(f"State after start_conversation: {current_state.get('stage')}")
+        user_state['stage'] = 'selecting_exam'
+        self.state_manager.update_user_state(user_phone, user_state)
         
         # Get available exams
         exams = self.exam_registry.get_available_exams()
@@ -50,8 +48,8 @@ class ExamFlowManager:
         """
         logger.info(f"Handling exam selection for {user_phone}: {message}")
         
-        # Verify we're in the right state (access directly)
-        user_state = self.state_manager.user_states.get(user_phone, {})
+        # Get current state
+        user_state = self.state_manager.get_user_state(user_phone)
         current_stage = user_state.get('stage')
         
         if current_stage != 'selecting_exam':
@@ -76,20 +74,17 @@ class ExamFlowManager:
                     exam_type = self.exam_registry.get_exam_type(selected_exam)
                     initial_stage = exam_type.get_initial_stage()
                     
-                    # Update user state with exam and initial stage
-                    state_updates = {
+                    # Update existing state with new values
+                    user_state.update({
                         'exam': selected_exam,
                         'stage': initial_stage
-                    }
+                    })
                     
-                    self.state_manager.update_user_state(user_phone, state_updates)
-                    
-                    # Verify state update (access directly)
-                    updated_state = self.state_manager.user_states.get(user_phone, {})
-                    logger.info(f"State after exam selection: exam={updated_state.get('exam')}, stage={updated_state.get('stage')}")
+                    # Update the state in one atomic operation
+                    self.state_manager.update_user_state(user_phone, user_state)
                     
                     # Get initial options for the first stage
-                    options = exam_type.get_available_options(initial_stage, updated_state)
+                    options = exam_type.get_available_options(initial_stage, user_state)
                     
                     if not options:
                         return f"Sorry, no options available for {selected_exam.upper()}. Please try another exam."

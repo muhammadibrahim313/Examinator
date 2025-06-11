@@ -63,7 +63,7 @@ async def whatsapp_webhook(
                            "• 'exit' - End current session\n"
                            "• 'help' - Show this help message")
         
-        # Handle stage-specific responses based on CURRENT state
+        # Handle stage-specific responses
         elif current_stage == 'initial':
             # User hasn't started yet, guide them to start
             logger.info(f"User {user_phone} in initial stage, starting conversation")
@@ -78,13 +78,12 @@ async def whatsapp_webhook(
             logger.info(f"User {user_phone} in stage {current_stage}, processing: {message_body}")
             response_text = exam_flow.handle_stage_flow(user_phone, message_body)
         
-        # Log the response being sent
-        logger.info(f"Sending response to {user_phone}: {response_text[:100]}...")
-        
-        # Verify final state after processing (but don't call get_user_state again!)
-        final_state = state_manager.user_states.get(user_phone, {})
-        final_stage = final_state.get('stage', 'unknown')
-        logger.info(f"Final state for {user_phone}: {final_stage}")
+        # Get FRESH state after processing to see what changed
+        updated_state = state_manager.get_user_state(user_phone)
+        logger.info(f"State after processing for {user_phone}:")
+        logger.info(f"Stage: {updated_state.get('stage')}")
+        logger.info(f"Exam: {updated_state.get('exam')}")
+        logger.info(f"Full state: {updated_state}")
         
         msg.body(response_text)
         
