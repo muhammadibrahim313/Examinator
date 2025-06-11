@@ -2,7 +2,8 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import Response
 from twilio.twiml.messaging_response import MessagingResponse
 from app.services.state import UserStateManager
-from app.services.exam_flow import ExamFlowManager
+from app.services.exam_registry import ExamRegistry
+from app.core.message_processor import MessageProcessor
 import logging
 
 # Set up logging
@@ -13,8 +14,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Initialize components
 state_manager = UserStateManager()
-exam_flow = ExamFlowManager()
+exam_registry = ExamRegistry()
+message_processor = MessageProcessor(state_manager, exam_registry)
 
 @router.post("/whatsapp")
 async def whatsapp_webhook(
@@ -24,67 +28,21 @@ async def whatsapp_webhook(
     To: str = Form(...)
 ):
     """
-    Handle incoming WhatsApp messages via Twilio webhook
+    Clean WhatsApp webhook handler
     """
     logger.info(f"Received message from {From}: {Body}")
     
-    # Create Twilio response object
+    # Create Twilio response
     response = MessagingResponse()
     msg = response.message()
     
-    # Extract user phone number (remove 'whatsapp:' prefix)
+    # Extract user phone number
     user_phone = From.replace('whatsapp:', '')
-    message_body = Body.strip().lower()
+    message_body = Body.strip()
     
     try:
-        # Get user's current state ONCE at the beginning
-        user_state = state_manager.get_user_state(user_phone)
-        current_stage = user_state.get('stage', 'initial')
-        
-        logger.info(f"Processing message from {user_phone}")
-        logger.info(f"Current stage: {current_stage}")
-        logger.info(f"Message: '{message_body}'")
-        logger.info(f"Full state: {user_state}")
-        
-        # Handle global commands first (these can interrupt any flow)
-        if message_body in ['start', 'restart']:
-            logger.info(f"User {user_phone} requesting restart/start")
-            response_text = exam_flow.start_conversation(user_phone)
-            
-        elif message_body == 'exit':
-            logger.info(f"User {user_phone} exiting")
-            state_manager.reset_user_state(user_phone)
-            response_text = "Thanks for using the Exam Practice Bot! Send 'start' to begin a new session."
-            
-        elif message_body == 'help':
-            response_text = ("Available commands:\n"
-                           "• 'start' - Begin a new exam session\n"
-                           "• 'restart' - Restart current session\n"
-                           "• 'exit' - End current session\n"
-                           "• 'help' - Show this help message")
-        
-        # Handle stage-specific responses
-        elif current_stage == 'initial':
-            # User hasn't started yet, guide them to start
-            logger.info(f"User {user_phone} in initial stage, starting conversation")
-            response_text = exam_flow.start_conversation(user_phone)
-            
-        elif current_stage == 'selecting_exam':
-            logger.info(f"User {user_phone} selecting exam: {message_body}")
-            response_text = exam_flow.handle_exam_selection(user_phone, message_body)
-            
-        else:
-            # Handle all other stages using the pluggable system
-            logger.info(f"User {user_phone} in stage {current_stage}, processing: {message_body}")
-            response_text = exam_flow.handle_stage_flow(user_phone, message_body)
-        
-        # Get FRESH state after processing to see what changed
-        updated_state = state_manager.get_user_state(user_phone)
-        logger.info(f"State after processing for {user_phone}:")
-        logger.info(f"Stage: {updated_state.get('stage')}")
-        logger.info(f"Exam: {updated_state.get('exam')}")
-        logger.info(f"Full state: {updated_state}")
-        
+        # Process the message using our clean architecture
+        response_text = message_processor.process_message(user_phone, message_body)
         msg.body(response_text)
         
     except Exception as e:
@@ -96,6 +54,6 @@ async def whatsapp_webhook(
 @router.get("/whatsapp")
 async def whatsapp_webhook_verify():
     """
-    Webhook verification endpoint for Twilio
+    Webhook verification endpoint
     """
     return {"message": "WhatsApp webhook endpoint is ready"}
