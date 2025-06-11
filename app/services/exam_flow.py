@@ -26,8 +26,8 @@ class ExamFlowManager:
         # Update state to exam selection stage
         self.state_manager.update_user_state(user_phone, {'stage': 'selecting_exam'})
         
-        # Verify state was updated
-        current_state = self.state_manager.get_user_state(user_phone)
+        # Verify state was updated (access directly, don't call get_user_state again)
+        current_state = self.state_manager.user_states.get(user_phone, {})
         logger.info(f"State after start_conversation: {current_state.get('stage')}")
         
         # Get available exams
@@ -50,8 +50,8 @@ class ExamFlowManager:
         """
         logger.info(f"Handling exam selection for {user_phone}: {message}")
         
-        # Verify we're in the right state
-        user_state = self.state_manager.get_user_state(user_phone)
+        # Verify we're in the right state (access directly)
+        user_state = self.state_manager.user_states.get(user_phone, {})
         current_stage = user_state.get('stage')
         
         if current_stage != 'selecting_exam':
@@ -84,8 +84,8 @@ class ExamFlowManager:
                     
                     self.state_manager.update_user_state(user_phone, state_updates)
                     
-                    # Verify state update
-                    updated_state = self.state_manager.get_user_state(user_phone)
+                    # Verify state update (access directly)
+                    updated_state = self.state_manager.user_states.get(user_phone, {})
                     logger.info(f"State after exam selection: exam={updated_state.get('exam')}, stage={updated_state.get('stage')}")
                     
                     # Get initial options for the first stage
@@ -118,7 +118,8 @@ class ExamFlowManager:
         """
         Handle stage-specific flow using exam type implementations
         """
-        user_state = self.state_manager.get_user_state(user_phone)
+        # Access state directly to avoid recreation
+        user_state = self.state_manager.user_states.get(user_phone, {})
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         

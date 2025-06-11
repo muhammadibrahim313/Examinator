@@ -37,7 +37,7 @@ async def whatsapp_webhook(
     message_body = Body.strip().lower()
     
     try:
-        # Get user's current state BEFORE processing
+        # Get user's current state ONCE at the beginning
         user_state = state_manager.get_user_state(user_phone)
         current_stage = user_state.get('stage', 'initial')
         
@@ -81,8 +81,8 @@ async def whatsapp_webhook(
         # Log the response being sent
         logger.info(f"Sending response to {user_phone}: {response_text[:100]}...")
         
-        # Verify final state after processing
-        final_state = state_manager.get_user_state(user_phone)
+        # Verify final state after processing (but don't call get_user_state again!)
+        final_state = state_manager.user_states.get(user_phone, {})
         final_stage = final_state.get('stage', 'unknown')
         logger.info(f"Final state for {user_phone}: {final_stage}")
         

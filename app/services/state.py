@@ -15,31 +15,31 @@ class UserStateManager:
     
     def get_user_state(self, user_phone: str) -> Dict[str, Any]:
         """
-        Get user's current state, creating a new one if doesn't exist
+        Get user's current state, creating a new one ONLY if doesn't exist
         """
         # Clean up expired sessions first
         self._cleanup_expired_sessions()
         
-        # If user doesn't exist, create new state
+        # CRITICAL: Only create new state if user doesn't exist
         if user_phone not in self.user_states:
             logger.info(f"Creating new state for user {user_phone}")
             self.user_states[user_phone] = self._create_initial_state()
-        
-        # Update last activity timestamp
-        self.user_states[user_phone]['last_activity'] = time.time()
+        else:
+            # User exists, just update last activity
+            self.user_states[user_phone]['last_activity'] = time.time()
         
         # Log current state for debugging
         current_stage = self.user_states[user_phone].get('stage', 'unknown')
         logger.info(f"Retrieved state for {user_phone}: stage={current_stage}")
         
-        # Return the existing state (not a copy)
+        # Return the existing state (NEVER create a new one here)
         return self.user_states[user_phone]
     
     def update_user_state(self, user_phone: str, updates: Dict[str, Any]) -> None:
         """
         Update user's state with new values
         """
-        # Ensure user state exists
+        # Ensure user state exists (but don't overwrite existing state)
         if user_phone not in self.user_states:
             logger.info(f"Creating new state for user {user_phone} during update")
             self.user_states[user_phone] = self._create_initial_state()
@@ -47,7 +47,7 @@ class UserStateManager:
         # Store old state for logging
         old_stage = self.user_states[user_phone].get('stage', 'unknown')
         
-        # Apply updates
+        # Apply updates to EXISTING state
         self.user_states[user_phone].update(updates)
         self.user_states[user_phone]['last_activity'] = time.time()
         
