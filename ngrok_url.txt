@@ -1,3 +1,0 @@
-Public URL: https://c830-102-90-116-235.ngrok-free.app
-Webhook URL: https://c830-102-90-116-235.ngrok-free.app/webhook/whatsapp
-ngrok Web Interface: http://localhost:4040
