@@ -20,10 +20,25 @@ class ExamRegistry:
         """
         Register flexible exam types supporting both topic and year-based practice
         """
-        self.register_exam('jamb', FlexibleJAMBExamType())
-        self.register_exam('sat', FlexibleSATExamType())
-        self.register_exam('neet', FlexibleNEETExamType())
-        logger.info("Registered flexible exam types: JAMB, SAT, NEET (supporting both topics and years)")
+        try:
+            self.register_exam('jamb', FlexibleJAMBExamType())
+            self.register_exam('sat', FlexibleSATExamType())
+            self.register_exam('neet', FlexibleNEETExamType())
+            logger.info("Successfully registered all exam types: JAMB, SAT, NEET")
+        except Exception as e:
+            logger.error(f"Error registering exam types: {e}")
+            # Fallback registration
+            try:
+                from app.services.exam_types.jamb import JAMBExamType
+                from app.services.exam_types.sat import SATExamType
+                from app.services.exam_types.neet import NEETExamType
+                
+                self.register_exam('jamb', JAMBExamType())
+                self.register_exam('sat', SATExamType())
+                self.register_exam('neet', NEETExamType())
+                logger.info("Registered fallback exam types: JAMB, SAT, NEET")
+            except Exception as fallback_error:
+                logger.error(f"Error with fallback registration: {fallback_error}")
     
     def register_exam(self, exam_name: str, exam_type: BaseExamType):
         """Register a new exam type"""
@@ -39,7 +54,9 @@ class ExamRegistry:
     
     def get_available_exams(self) -> list[str]:
         """Get list of available exam names"""
-        return list(self._exam_types.keys())
+        available = list(self._exam_types.keys())
+        logger.info(f"Available exams: {available}")
+        return available
     
     def is_exam_supported(self, exam_name: str) -> bool:
         """Check if an exam type is supported"""
@@ -47,7 +64,11 @@ class ExamRegistry:
     
     def get_exam_info(self, exam_name: str) -> Dict[str, any]:
         """Get comprehensive exam information"""
-        exam_type = self.get_exam_type(exam_name)
-        if hasattr(exam_type, 'question_fetcher'):
-            return exam_type.question_fetcher.get_exam_info(exam_name)
-        return {}
+        try:
+            exam_type = self.get_exam_type(exam_name)
+            if hasattr(exam_type, 'question_fetcher'):
+                return exam_type.question_fetcher.get_exam_info(exam_name)
+            return {}
+        except Exception as e:
+            logger.error(f"Error getting exam info for {exam_name}: {e}")
+            return {}
