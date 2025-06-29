@@ -5,3 +5,13 @@ python-multipart
 pydantic
 requests
 gunicorn
+langgraph
+langchain-core
+langchain-community
+langchain-openai
+langchain-google-genai
+langchain-tavily
+openevals
+wikipedia
+python-dotenv
+asyncio

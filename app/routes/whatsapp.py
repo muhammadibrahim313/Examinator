@@ -3,8 +3,9 @@ from fastapi.responses import Response
 from twilio.twiml.messaging_response import MessagingResponse
 from app.services.state import UserStateManager
 from app.services.exam_registry import ExamRegistry
-from app.core.message_processor import MessageProcessor
+from app.core.smart_message_processor import SmartMessageProcessor
 import logging
+import asyncio
 
 # Set up logging
 logging.basicConfig(
@@ -18,7 +19,7 @@ router = APIRouter()
 # Initialize components
 state_manager = UserStateManager()
 exam_registry = ExamRegistry()
-message_processor = MessageProcessor(state_manager, exam_registry)
+smart_message_processor = SmartMessageProcessor(state_manager, exam_registry)
 
 @router.post("/whatsapp")
 async def whatsapp_webhook(
@@ -28,7 +29,7 @@ async def whatsapp_webhook(
     To: str = Form(...)
 ):
     """
-    Clean WhatsApp webhook handler
+    Enhanced WhatsApp webhook handler with LLM agent integration
     """
     logger.info(f"Received message from {From}: {Body}")
     
@@ -41,8 +42,8 @@ async def whatsapp_webhook(
     message_body = Body.strip()
     
     try:
-        # Process the message using our clean architecture
-        response_text = message_processor.process_message(user_phone, message_body)
+        # Process the message using our smart processor with LLM capabilities
+        response_text = await smart_message_processor.process_message(user_phone, message_body)
         msg.body(response_text)
         
     except Exception as e:
@@ -56,4 +57,4 @@ async def whatsapp_webhook_verify():
     """
     Webhook verification endpoint
     """
-    return {"message": "WhatsApp webhook endpoint is ready"}
+    return {"message": "WhatsApp webhook endpoint is ready with LLM agent integration"}
