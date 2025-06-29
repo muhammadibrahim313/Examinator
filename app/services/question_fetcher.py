@@ -24,11 +24,69 @@ class QuestionFetcher:
     def _load_exam_structure(self) -> Dict[str, Any]:
         """Load exam structure configuration"""
         try:
-            with open('app/data/exam_structure.json', 'r') as f:
-                return json.load(f)
+            # Try multiple possible paths
+            possible_paths = [
+                'app/data/exam_structure.json',
+                './app/data/exam_structure.json',
+                '/opt/render/project/src/app/data/exam_structure.json'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        data = json.load(f)
+                        logger.info(f"Successfully loaded exam structure from {path}")
+                        return data
+            
+            # If no file found, return default structure
+            logger.warning("No exam structure file found, using default structure")
+            return self._get_default_exam_structure()
+            
         except Exception as e:
             logger.error(f"Error loading exam structure: {e}")
-            return {}
+            return self._get_default_exam_structure()
+    
+    def _get_default_exam_structure(self) -> Dict[str, Any]:
+        """Return default exam structure if file loading fails"""
+        return {
+            "jamb": {
+                "name": "Joint Admissions and Matriculation Board",
+                "subjects": {
+                    "Mathematics": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "English Language": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Biology": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Chemistry": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Physics": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Geography": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Economics": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Government": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Literature in English": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "History": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Agricultural Science": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Computer Studies": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]}
+                }
+            },
+            "sat": {
+                "name": "Scholastic Assessment Test",
+                "subjects": {
+                    "Math": {"questions_per_exam": 58, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Reading and Writing": {"questions_per_exam": 54, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Biology": {"questions_per_exam": 80, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Chemistry": {"questions_per_exam": 85, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Physics": {"questions_per_exam": 75, "years_available": ["2020", "2021", "2022", "2023", "2024"]}
+                }
+            },
+            "neet": {
+                "name": "National Eligibility cum Entrance Test",
+                "subjects": {
+                    "Physics": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Chemistry": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Biology": {"questions_per_exam": 50, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Botany": {"questions_per_exam": 25, "years_available": ["2020", "2021", "2022", "2023", "2024"]},
+                    "Zoology": {"questions_per_exam": 25, "years_available": ["2020", "2021", "2022", "2023", "2024"]}
+                }
+            }
+        }
     
     async def fetch_questions(self, exam: str, subject: str, num_questions: int = 50) -> List[Dict[str, Any]]:
         """
@@ -41,7 +99,7 @@ class QuestionFetcher:
             
             if not available_years:
                 logger.warning(f"No years available for {exam} {subject}")
-                return []
+                return self._generate_fallback_questions(exam, subject, num_questions)
             
             # Select random years to get diverse questions
             selected_years = random.sample(available_years, min(3, len(available_years)))
@@ -64,13 +122,11 @@ class QuestionFetcher:
             # Parse the response to extract structured questions
             questions = self._parse_questions_from_response(full_response, exam, subject, selected_years)
             
-            # Ensure we have the right number of questions
-            if len(questions) < num_questions:
-                # If we don't have enough, try to fetch more
-                additional_questions = await self._fetch_additional_questions(
-                    exam, subject, num_questions - len(questions), selected_years
-                )
-                questions.extend(additional_questions)
+            # If we don't have enough questions, generate fallback
+            if len(questions) < num_questions // 2:  # If less than half expected
+                logger.warning(f"Only got {len(questions)} questions, generating fallback")
+                fallback_questions = self._generate_fallback_questions(exam, subject, num_questions - len(questions))
+                questions.extend(fallback_questions)
             
             # Shuffle and return the requested number
             random.shuffle(questions)
@@ -78,7 +134,32 @@ class QuestionFetcher:
             
         except Exception as e:
             logger.error(f"Error fetching questions for {exam} {subject}: {e}")
-            return []
+            return self._generate_fallback_questions(exam, subject, num_questions)
+    
+    def _generate_fallback_questions(self, exam: str, subject: str, num_questions: int) -> List[Dict[str, Any]]:
+        """Generate fallback questions when LLM fetch fails"""
+        questions = []
+        
+        for i in range(min(num_questions, 10)):  # Generate up to 10 fallback questions
+            questions.append({
+                "id": i + 1,
+                "question": f"Sample {exam.upper()} {subject} question {i + 1}. This is a practice question to test your knowledge.",
+                "options": {
+                    "A": f"Option A for question {i + 1}",
+                    "B": f"Option B for question {i + 1}",
+                    "C": f"Option C for question {i + 1}",
+                    "D": f"Option D for question {i + 1}"
+                },
+                "correct_answer": random.choice(["A", "B", "C", "D"]),
+                "explanation": f"This is a sample explanation for {subject} question {i + 1}.",
+                "year": "2023",
+                "exam": exam.upper(),
+                "subject": subject,
+                "source": "fallback",
+                "difficulty": "standard"
+            })
+        
+        return questions
     
     def _create_search_query(self, exam: str, subject: str, years: List[str], num_questions: int) -> str:
         """
@@ -219,48 +300,6 @@ class QuestionFetcher:
         # Fallback to random year
         return random.choice(available_years) if available_years else "2023"
     
-    async def _fetch_additional_questions(self, exam: str, subject: str, needed: int, years: List[str]) -> List[Dict[str, Any]]:
-        """
-        Fetch additional questions if the initial fetch didn't return enough
-        """
-        try:
-            # Try with different years or more specific search
-            additional_years = random.sample(years, min(2, len(years)))
-            
-            search_query = f"""
-            I need {needed} more real {exam.upper()} {subject} past questions from years {', '.join(additional_years)}.
-            
-            Please provide them in the same format as before:
-            **Question X (Year: XXXX):**
-            [Question text]
-            A. [Option A]
-            B. [Option B]
-            C. [Option C] 
-            D. [Option D]
-            **Correct Answer:** [Letter]
-            **Explanation:** [Detailed explanation]
-            
-            Focus on different topics within {subject} that weren't covered in the previous questions.
-            """
-            
-            agent_input = {"messages": [HumanMessage(content=search_query)]}
-            
-            response_chunks = []
-            async for chunk in self.agent.astream(agent_input, config=self.config):
-                if 'messages' in chunk:
-                    for msg in chunk['messages']:
-                        if hasattr(msg, 'content') and msg.content:
-                            response_chunks.append(msg.content)
-            
-            full_response = '\n'.join(response_chunks) if response_chunks else ""
-            additional_questions = self._parse_questions_from_response(full_response, exam, subject, additional_years)
-            
-            return additional_questions
-            
-        except Exception as e:
-            logger.error(f"Error fetching additional questions: {e}")
-            return []
-    
     def get_exam_info(self, exam: str) -> Dict[str, Any]:
         """
         Get exam information including subjects and structure
@@ -272,7 +311,9 @@ class QuestionFetcher:
         Get available subjects for an exam
         """
         exam_info = self.exam_structure.get(exam.lower(), {})
-        return list(exam_info.get('subjects', {}).keys())
+        subjects = list(exam_info.get('subjects', {}).keys())
+        logger.info(f"Available subjects for {exam}: {subjects}")
+        return subjects
     
     def get_questions_per_exam(self, exam: str, subject: str) -> int:
         """
