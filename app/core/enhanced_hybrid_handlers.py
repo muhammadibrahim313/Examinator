@@ -112,7 +112,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         FIXED: Handle question loading synchronously to prevent server crashes
         """
         try:
-            logger.info(f"Loading questions synchronously for {user_phone}")
+            logger.info(f"🔄 QUESTION LOADING START: Loading questions synchronously for {user_phone}")
             
             # Get the required parameters
             subject = user_state.get('subject')
@@ -121,23 +121,27 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             num_questions = user_state.get('questions_needed', 25)
             
             if not subject:
-                logger.error(f"No subject found for {user_phone}")
+                logger.error(f"❌ LOADING ERROR: No subject found for {user_phone}")
                 return {
                     'response': "Session error. Please send 'restart' to start over.",
                     'state_updates': {'stage': 'selecting_subject'},
                     'next_handler': f'{user_state.get("exam")}_handler'
                 }
             
+            logger.info(f"📊 LOADING PARAMS: {user_state.get('exam')} {subject} - {practice_type} - {selected_option} - {num_questions} questions")
+            
             # FIXED: Generate fallback questions immediately instead of async loading
             questions = self._generate_immediate_questions(user_state, num_questions)
             
             if not questions:
-                logger.error(f"Failed to generate questions for {user_phone}")
+                logger.error(f"❌ LOADING FAILED: Failed to generate questions for {user_phone}")
                 return {
                     'response': "Sorry, could not load questions right now. Please try again or select another option.",
                     'state_updates': {'stage': 'selecting_practice_option'},
                     'next_handler': f'{user_state.get("exam")}_handler'
                 }
+            
+            logger.info(f"✅ LOADING SUCCESS: Generated {len(questions)} questions for {user_phone}")
             
             # Format first question
             first_question = self._format_question(questions[0], 1, len(questions))
@@ -158,7 +162,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             intro += f"📊 {len(questions)} practice questions\n"
             intro += f"⏱️ Standard {exam} format\n\n"
             
-            logger.info(f"Successfully loaded {len(questions)} questions for {user_phone}")
+            logger.info(f"🎯 LOADING COMPLETE: Successfully loaded {len(questions)} questions for {user_phone}")
             
             return {
                 'response': intro + first_question,
@@ -174,7 +178,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             }
             
         except Exception as e:
-            logger.error(f"Error in sync question loading: {e}", exc_info=True)
+            logger.error(f"❌ CRITICAL ERROR in sync question loading: {str(e)}", exc_info=True)
             return {
                 'response': "Sorry, there was an error loading questions. Please try selecting another option.",
                 'state_updates': {'stage': 'selecting_practice_option'},
@@ -190,6 +194,8 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             subject = user_state.get('subject', '')
             practice_type = user_state.get('practice_type', 'mixed')
             selected_option = user_state.get('selected_option', 'Practice')
+            
+            logger.info(f"🔧 IMMEDIATE GENERATION: Creating {num_questions} questions for {exam} {subject} - {practice_type} - {selected_option}")
             
             questions = []
             
@@ -221,11 +227,11 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     "difficulty": "standard"
                 })
             
-            logger.info(f"Generated {len(questions)} immediate questions for {exam} {subject}")
+            logger.info(f"✅ IMMEDIATE GENERATION COMPLETE: Generated {len(questions)} immediate questions for {exam} {subject}")
             return questions
             
         except Exception as e:
-            logger.error(f"Error generating immediate questions: {e}")
+            logger.error(f"❌ IMMEDIATE GENERATION ERROR: Error generating immediate questions: {str(e)}")
             return []
     
     def _get_question_templates(self, exam: str, subject: str, practice_type: str, selected_option: str) -> list:
@@ -501,7 +507,7 @@ class AsyncQuestionLoader:
                     'next_handler': f'{user_state.get("exam")}_handler'
                 }
         except Exception as e:
-            logger.error(f"Error in async question loading: {e}")
+            logger.error(f"❌ ASYNC LOADING ERROR: Error in async question loading: {str(e)}")
             return {
                 'response': "Sorry, there was an error loading questions. Please try again.",
                 'state_updates': {'stage': 'selecting_subject'},

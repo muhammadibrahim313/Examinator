@@ -92,20 +92,24 @@ class QuestionFetcher:
         """
         Fetch real past exam questions using LLM agent with web search
         """
+        logger.info(f"🔍 QUESTION FETCH START: {exam.upper()} {subject} - requesting {num_questions} questions")
+        
         try:
             exam_info = self.exam_structure.get(exam.lower(), {})
             subject_info = exam_info.get('subjects', {}).get(subject, {})
             available_years = subject_info.get('years_available', [])
             
             if not available_years:
-                logger.warning(f"No years available for {exam} {subject}")
+                logger.warning(f"⚠️  No years available for {exam} {subject} - using fallback")
                 return self._generate_fallback_questions(exam, subject, num_questions)
             
             # Select random years to get diverse questions
             selected_years = random.sample(available_years, min(3, len(available_years)))
+            logger.info(f"📅 Selected years for question search: {selected_years}")
             
             # Create comprehensive search query
             search_query = self._create_search_query(exam, subject, selected_years, num_questions)
+            logger.info(f"🔍 Starting LLM agent search for {exam.upper()} {subject} questions")
             
             # Use LLM agent to search and extract questions
             agent_input = {"messages": [HumanMessage(content=search_query)]}
@@ -118,26 +122,42 @@ class QuestionFetcher:
                             response_chunks.append(msg.content)
             
             full_response = '\n'.join(response_chunks) if response_chunks else ""
+            logger.info(f"📝 LLM agent response length: {len(full_response)} characters")
+            
+            if not full_response.strip():
+                logger.error(f"❌ LLM AGENT FAILED: Empty response for {exam.upper()} {subject}")
+                logger.info(f"🔄 USING FALLBACK: Generating {num_questions} fallback questions")
+                return self._generate_fallback_questions(exam, subject, num_questions)
             
             # Parse the response to extract structured questions
             questions = self._parse_questions_from_response(full_response, exam, subject, selected_years)
+            logger.info(f"✅ PARSED QUESTIONS: {len(questions)} questions extracted from LLM response")
             
             # If we don't have enough questions, generate fallback
             if len(questions) < num_questions // 2:  # If less than half expected
-                logger.warning(f"Only got {len(questions)} questions, generating fallback")
+                logger.warning(f"⚠️  INSUFFICIENT QUESTIONS: Only got {len(questions)}/{num_questions} questions from LLM")
+                logger.info(f"🔄 USING FALLBACK: Generating {num_questions - len(questions)} additional fallback questions")
                 fallback_questions = self._generate_fallback_questions(exam, subject, num_questions - len(questions))
                 questions.extend(fallback_questions)
+                logger.info(f"📊 FINAL MIX: {len(questions)} total questions ({len(questions) - len(fallback_questions)} LLM + {len(fallback_questions)} fallback)")
+            else:
+                logger.info(f"✅ SUCCESS: Using {len(questions)} LLM-generated questions (no fallback needed)")
             
             # Shuffle and return the requested number
             random.shuffle(questions)
-            return questions[:num_questions]
+            final_questions = questions[:num_questions]
+            logger.info(f"🎯 QUESTION FETCH COMPLETE: Returning {len(final_questions)} questions for {exam.upper()} {subject}")
+            return final_questions
             
         except Exception as e:
-            logger.error(f"Error fetching questions for {exam} {subject}: {e}")
+            logger.error(f"❌ CRITICAL ERROR in question fetching for {exam.upper()} {subject}: {str(e)}", exc_info=True)
+            logger.info(f"🔄 EMERGENCY FALLBACK: Generating {num_questions} fallback questions due to error")
             return self._generate_fallback_questions(exam, subject, num_questions)
     
     def _generate_fallback_questions(self, exam: str, subject: str, num_questions: int) -> List[Dict[str, Any]]:
         """Generate fallback questions when LLM fetch fails"""
+        logger.info(f"🔧 GENERATING FALLBACK: Creating {num_questions} fallback questions for {exam.upper()} {subject}")
+        
         questions = []
         
         for i in range(min(num_questions, 10)):  # Generate up to 10 fallback questions
@@ -159,6 +179,7 @@ class QuestionFetcher:
                 "difficulty": "standard"
             })
         
+        logger.info(f"✅ FALLBACK COMPLETE: Generated {len(questions)} fallback questions")
         return questions
     
     def _create_search_query(self, exam: str, subject: str, years: List[str], num_questions: int) -> str:
@@ -202,26 +223,32 @@ class QuestionFetcher:
         """
         Parse structured questions from the LLM response
         """
+        logger.info(f"🔍 PARSING RESPONSE: Extracting questions from LLM response for {exam.upper()} {subject}")
+        
         questions = []
         
         try:
             # Split response into individual questions
             question_blocks = response.split('**Question')
+            logger.info(f"📊 Found {len(question_blocks) - 1} potential question blocks in response")
             
             for i, block in enumerate(question_blocks[1:], 1):  # Skip first empty block
                 try:
                     question_data = self._parse_single_question(block, i, exam, subject, years)
                     if question_data:
                         questions.append(question_data)
+                        logger.debug(f"✅ Successfully parsed question {i}")
+                    else:
+                        logger.warning(f"⚠️  Failed to parse question {i} - incomplete data")
                 except Exception as e:
-                    logger.warning(f"Error parsing question {i}: {e}")
+                    logger.warning(f"❌ Error parsing question {i}: {str(e)}")
                     continue
             
-            logger.info(f"Successfully parsed {len(questions)} questions from response")
+            logger.info(f"✅ PARSING COMPLETE: Successfully parsed {len(questions)} valid questions from response")
             return questions
             
         except Exception as e:
-            logger.error(f"Error parsing questions from response: {e}")
+            logger.error(f"❌ PARSING FAILED: Error parsing questions from response: {str(e)}")
             return []
     
     def _parse_single_question(self, block: str, question_id: int, exam: str, subject: str, years: List[str]) -> Optional[Dict[str, Any]]:
@@ -269,7 +296,7 @@ class QuestionFetcher:
             
             # Validate required fields
             if not question_text or len(options) != 4 or not correct_answer:
-                logger.warning(f"Incomplete question data for question {question_id}")
+                logger.debug(f"❌ Question {question_id} validation failed: text={bool(question_text)}, options={len(options)}, answer={bool(correct_answer)}")
                 return None
             
             return {
@@ -286,7 +313,7 @@ class QuestionFetcher:
             }
             
         except Exception as e:
-            logger.error(f"Error parsing single question: {e}")
+            logger.error(f"❌ Error parsing single question {question_id}: {str(e)}")
             return None
     
     def _extract_year(self, text: str, available_years: List[str]) -> str:
