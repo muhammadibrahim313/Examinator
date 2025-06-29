@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 import logging
 from app.services.llm_agent import LLMAgentService
+from app.core.system_commands import SystemCommands
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class HybridMessageHandler(ABC):
         stage = user_state.get('stage', 'initial')
         
         if stage == 'initial':
-            return ['start', 'help', 'faq']
+            return ['start', 'help']
         elif stage == 'selecting_exam':
             return ['1, 2, 3 (numbers)', 'help', 'restart']
         elif stage in ['selecting_subject', 'selecting_practice_mode', 'selecting_practice_option']:
@@ -150,47 +151,17 @@ class HybridMessageHandler(ABC):
 
 class SmartGlobalCommandHandler(HybridMessageHandler):
     """
-    Enhanced global command handler with LLM capabilities and comprehensive help
+    Enhanced global command handler with FIXED system command detection
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
         command = message.lower().strip()
-        return command in ['start', 'restart', 'exit', 'help', 'faq'] or self._is_general_query(message)
+        # Only handle core system commands
+        return command in ['start', 'restart', 'exit']
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Use LLM for greetings, help, FAQ, and general queries"""
-        command = message.lower().strip()
-        specific_commands = ['start', 'restart', 'exit']
-        
-        # Only use structured logic for critical bot commands
-        if command in specific_commands:
-            return False
-        
-        # Use LLM for help, FAQ, and general queries
-        return True
-    
-    def _is_general_query(self, message: str) -> bool:
-        """Check if this is a general query that should be handled by LLM"""
-        general_keywords = [
-            'help', 'how', 'what', 'why', 'when', 'where', 'explain',
-            'tell me', 'can you', 'do you', 'about', 'info', 'faq',
-            'question', 'support', 'assistance', 'guide'
-        ]
-        
-        # Simple greetings and common messages
-        simple_greetings = [
-            'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
-            'hola', 'sup', 'yo', 'greetings', 'howdy', 'wassup', 'whatsup'
-        ]
-        
-        message_lower = message.lower().strip()
-        
-        # Check for exact matches with simple greetings
-        if message_lower in simple_greetings:
-            return True
-            
-        # Check for general keywords
-        return any(keyword in message_lower for keyword in general_keywords)
+        """NEVER use LLM for global commands - always use structured logic"""
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle only critical bot commands with structured logic"""
@@ -224,7 +195,8 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
         response = (f"🎓 Welcome to the Exam Practice Bot!\n\n"
                    f"Available exams:\n{exam_list}\n\n"
                    f"Please reply with the number of your choice (e.g., '1' for {exams[0].upper()}).\n\n"
-                   f"💡 Commands: 'help' (assistance), 'faq' (common questions)")
+                   f"💡 Commands: 'help' (assistance)\n"
+                   f"💡 To chat with AI: 'ask: your question'")
         
         return {
             'response': response,
@@ -247,39 +219,25 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
         """Handle exit command"""
         logger.info(f"User {user_phone} exiting")
         return {
-            'response': "Thanks for using the Exam Practice Bot! 👋\n\nSend 'start' to begin a new session anytime.\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
+            'response': "Thanks for using the Exam Practice Bot! 👋\n\nSend 'start' to begin a new session anytime.\n\n💡 Commands: 'help' (assistance)\n💡 To chat with AI: 'ask: your question'",
             'state_updates': {'stage': 'initial'},
             'next_handler': None
         }
 
 class SmartExamSelectionHandler(HybridMessageHandler):
     """
-    Enhanced exam selection handler with STRICT input validation and help support
+    Enhanced exam selection handler with FIXED system command validation
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
         return user_state.get('stage') == 'selecting_exam'
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Use LLM for help and general queries, structured logic for selections"""
-        message_lower = message.lower().strip()
-        
-        # Use LLM for help, FAQ, and general queries
-        help_keywords = ['help', 'faq', 'what', 'how', 'explain', 'tell me', 'about']
-        if any(keyword in message_lower for keyword in help_keywords):
-            return True
-        
-        # Use structured logic for numbers and navigation
-        try:
-            int(message.strip())
-            return False
-        except ValueError:
-            if message_lower in ['back', 'restart']:
-                return False
-            return True  # Use LLM for other queries
+        """NEVER use LLM for exam selection - always use structured logic with validation"""
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle exam selection with STRICT validation and enhanced guidance"""
+        """Handle exam selection with FIXED validation"""
         logger.info(f"Processing exam selection for {user_phone}: {message}")
         
         exams = self.exam_registry.get_available_exams()
@@ -298,7 +256,7 @@ class SmartExamSelectionHandler(HybridMessageHandler):
         elif message_clean.lower() == 'back':
             return self._handle_back_from_exam_selection()
         
-        # Strict number validation
+        # Handle number selection
         try:
             choice = int(message_clean)
             
@@ -341,11 +299,11 @@ class SmartExamSelectionHandler(HybridMessageHandler):
                         'next_handler': 'exam_selection'
                     }
             else:
-                # Invalid number range
+                # This should be caught by validation, but just in case
                 return self._get_invalid_number_response(choice, len(exams), exams)
                 
         except ValueError:
-            # Not a number at all
+            # This should be caught by validation, but just in case
             return self._get_invalid_input_response(message_clean, exams)
     
     def _get_invalid_number_response(self, choice: int, max_choice: int, exams: list) -> Dict[str, Any]:
@@ -355,7 +313,6 @@ class SmartExamSelectionHandler(HybridMessageHandler):
         response = f"❌ Invalid choice: {choice}\n\n"
         response += f"Please select a number between 1 and {max_choice}.\n\n"
         response += f"🎓 Available exams:\n{exam_list}\n\n"
-        response += f"Please reply with the number of your choice.\n\n"
         response += f"💡 Commands: 'help' (assistance), 'restart' (start over)"
         
         return {
@@ -368,19 +325,9 @@ class SmartExamSelectionHandler(HybridMessageHandler):
         """Get response for completely invalid input"""
         exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
         
-        # Provide specific guidance based on the type of invalid input
-        if input_text.lower() in ['a', 'b', 'c', 'd']:
-            response = f"❌ You sent '{input_text.upper()}' but we're selecting an exam, not answering a question.\n\n"
-        elif input_text.isalpha() and len(input_text) == 1:
-            response = f"❌ You sent '{input_text}' but please enter a number.\n\n"
-        elif len(input_text) > 10:
-            response = f"❌ That's too long. Please enter a simple number.\n\n"
-        else:
-            response = f"❌ '{input_text}' is not a valid choice.\n\n"
-        
+        response = f"❌ '{input_text}' is not a valid choice.\n\n"
         response += f"Please enter a number between 1 and {len(exams)} to select an exam.\n\n"
         response += f"🎓 Available exams:\n{exam_list}\n\n"
-        response += f"Examples: Send '1' for JAMB, '2' for SAT, '3' for NEET\n\n"
         response += f"💡 Commands: 'help' (assistance), 'restart' (start over)"
         
         return {
@@ -396,7 +343,8 @@ class SmartExamSelectionHandler(HybridMessageHandler):
                    f"🎓 Welcome to the Exam Practice Bot!\n\n"
                    f"Available exams:\n{exam_list}\n\n"
                    f"Please reply with the number of your choice.\n\n"
-                   f"💡 Commands: 'help' (assistance), 'faq' (common questions)")
+                   f"💡 Commands: 'help' (assistance)\n"
+                   f"💡 To chat with AI: 'ask: your question'")
         
         return {
             'response': response,
@@ -418,14 +366,14 @@ class SmartExamSelectionHandler(HybridMessageHandler):
     def _handle_back_from_exam_selection(self) -> Dict[str, Any]:
         """Handle back command from exam selection"""
         return {
-            'response': "🔙 You're already at the beginning. Send 'restart' to start over or select an exam from the list above.\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
+            'response': "🔙 You're already at the beginning. Send 'restart' to start over or select an exam from the list above.\n\n💡 Commands: 'help' (assistance)\n💡 To chat with AI: 'ask: your question'",
             'state_updates': {},
             'next_handler': 'exam_selection'
         }
 
 class SmartExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with LLM capabilities for questions and explanations
+    Enhanced exam type handler with system command validation
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
@@ -437,23 +385,8 @@ class SmartExamTypeHandler(HybridMessageHandler):
                 self.exam_registry.is_exam_supported(exam))
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Use LLM when taking exams for explanations, structured logic for selections"""
-        stage = user_state.get('stage', '')
-        
-        if stage == 'taking_exam':
-            # For exam answers, use structured logic for A,B,C,D but LLM for explanations
-            answer = message.strip().lower()
-            if answer in ['a', 'b', 'c', 'd']:
-                return False  # Use structured logic for answer processing
-            else:
-                return True  # Use LLM for questions about the exam
-        
-        # For selection stages, use structured logic for numbers, LLM for queries
-        try:
-            int(message.strip())
-            return False
-        except ValueError:
-            return True
+        """Use structured logic for all exam type handling"""
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle with structured exam logic"""
@@ -496,72 +429,44 @@ class SmartExamTypeHandler(HybridMessageHandler):
 
 class SmartFallbackHandler(HybridMessageHandler):
     """
-    Enhanced fallback handler with improved error handling and help
+    Enhanced fallback handler with system command awareness
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
         return True  # Always can handle as fallback
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        # Try LLM for complex queries, but have structured fallback ready
-        return len(message.strip()) > 5  # Use LLM for longer messages only
-    
-    async def handle(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Enhanced handle method with better error recovery
-        """
-        try:
-            if self.should_use_llm(message, user_state):
-                # Try LLM first
-                try:
-                    return await self._handle_with_llm(user_phone, message, user_state)
-                except Exception as e:
-                    logger.warning(f"LLM failed for fallback handler, using structured logic: {str(e)}")
-                    # If LLM fails, fall back to structured logic
-                    return self._handle_with_logic(user_phone, message, user_state)
-            else:
-                return self._handle_with_logic(user_phone, message, user_state)
-        except Exception as e:
-            logger.error(f"Error in enhanced fallback handler: {str(e)}", exc_info=True)
-            return self._handle_with_logic(user_phone, message, user_state)
+        # Never use LLM in fallback - provide structured guidance
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Provide helpful structured responses when LLM fails or for simple messages"""
+        """Provide helpful structured responses"""
         stage = user_state.get('stage', 'initial')
         logger.info(f"Enhanced fallback logic handler for {user_phone} in stage {stage}")
-        
-        # Check if it looks like a simple greeting that got missed
-        message_lower = message.lower().strip()
-        if any(greeting in message_lower for greeting in ['hello', 'hi', 'hey', 'good', 'morning', 'afternoon', 'evening']):
-            return {
-                'response': "Hello! 👋 I'm your Exam Practice Bot. Send 'start' to begin practicing for JAMB, SAT, or NEET exams!\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
-                'state_updates': {},
-                'next_handler': None
-            }
         
         # Provide contextual help based on current stage
         if stage == 'initial':
             return {
-                'response': "Welcome! 🎓 I'm here to help you practice for exams.\n\nSend 'start' to begin practicing for JAMB, SAT, or NEET exams!\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
+                'response': "Welcome! 🎓 I'm here to help you practice for exams.\n\nSend 'start' to begin practicing for JAMB, SAT, or NEET exams!\n\n💡 Commands: 'help' (assistance)\n💡 To chat with AI: 'ask: your question'",
                 'state_updates': {},
                 'next_handler': None
             }
         elif stage == 'selecting_exam':
             return {
-                'response': "Please select an exam by sending the number (1, 2, or 3) from the list above.\n\n💡 Commands: 'restart' (start over), 'help' (assistance)",
+                'response': "Please select an exam by sending the number (1, 2, or 3) from the list above.\n\n💡 Commands: 'restart' (start over), 'help' (assistance)\n💡 To chat with AI: 'ask: your question'",
                 'state_updates': {},
                 'next_handler': None
             }
         elif user_state.get('exam'):
             exam_name = user_state.get('exam', '').upper()
             return {
-                'response': f"I didn't understand that. You're currently practicing for {exam_name}.\n\n💡 Commands:\n• 'back' - Go to previous step\n• 'restart' - Start over\n• 'help' - Get assistance\n• Follow the instructions above",
+                'response': f"I didn't understand that. You're currently practicing for {exam_name}.\n\n💡 Commands:\n• 'back' - Go to previous step\n• 'restart' - Start over\n• 'help' - Get assistance\n• Follow the instructions above\n\n💡 To chat with AI: 'ask: your question'",
                 'state_updates': {},
                 'next_handler': None
             }
         else:
             return {
-                'response': "I didn't understand that. 🤔\n\n💡 Available commands:\n• 'start' - Begin exam practice\n• 'restart' - Start over\n• 'help' - Get assistance\n• 'faq' - Common questions",
+                'response': "I didn't understand that. 🤔\n\n💡 Available commands:\n• 'start' - Begin exam practice\n• 'restart' - Start over\n• 'help' - Get assistance\n\n💡 To chat with AI: 'ask: your question'",
                 'state_updates': {},
                 'next_handler': None
             }
