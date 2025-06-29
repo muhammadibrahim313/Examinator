@@ -1,6 +1,7 @@
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.graph.state import CompiledStateGraph
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from typing import Annotated, TypedDict, List, Optional
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -13,20 +14,185 @@ import json
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
+import random
+import time
 
 load_dotenv()
 
-from openevals.llm import create_async_llm_as_judge
-from openevals.prompts import (
-    RAG_RETRIEVAL_RELEVANCE_PROMPT,
-    RAG_HELPFULNESS_PROMPT,
-)
+# HYBRID MODEL SYSTEM: Groq (primary) + Google Gemini (fallback)
+class HybridModelManager:
+    """Manages both Groq and Google Gemini models with intelligent failover"""
+    
+    def __init__(self):
+        self.groq_calls = 0
+        self.gemini_calls = 0
+        self.groq_failures = 0
+        self.gemini_failures = 0
+        self.last_groq_failure = 0
+        self.last_gemini_failure = 0
+        self.groq_cooldown = 60  # seconds
+        self.gemini_cooldown = 300  # 5 minutes for quota issues
+        
+    def get_primary_model(self):
+        """Get Groq model (primary) - faster and higher limits"""
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not groq_api_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+        
+        return ChatGroq(
+            model="llama3-8b-8192",  # Updated to current production model
+            api_key=groq_api_key,
+            temperature=0.3,
+            max_tokens=4096,
+            timeout=30
+        )
+    
+    def get_fallback_model(self):
+        """Get Google Gemini model (fallback) - reliable backup"""
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+        if not google_api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is not set")
+        
+        return ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            api_key=google_api_key,
+            temperature=0.3
+        )
+    
+    def should_use_groq(self):
+        """Determine if Groq should be used (not in cooldown)"""
+        current_time = time.time()
+        groq_ready = (current_time - self.last_groq_failure) > self.groq_cooldown
+        groq_available = os.getenv("GROQ_API_KEY") is not None
+        return groq_available and groq_ready
+    
+    def should_use_gemini(self):
+        """Determine if Gemini should be used (not in cooldown)"""
+        current_time = time.time()
+        gemini_ready = (current_time - self.last_gemini_failure) > self.gemini_cooldown
+        gemini_available = os.getenv("GOOGLE_API_KEY") is not None
+        return gemini_available and gemini_ready
+    
+    async def get_model_response(self, messages, use_async=True):
+        """Get response from models with intelligent failover"""
+        current_time = time.time()
+        
+        # Strategy 1: Try Groq first (faster, higher limits)
+        if self.should_use_groq():
+            try:
+                print("🚀 Using Groq (primary)")
+                model = self.get_primary_model()
+                
+                if use_async:
+                    response = await model.ainvoke(messages)
+                else:
+                    response = model.invoke(messages)
+                
+                self.groq_calls += 1
+                print(f"✅ Groq success (calls: {self.groq_calls})")
+                return response, "groq"
+                
+            except Exception as e:
+                self.groq_failures += 1
+                self.last_groq_failure = current_time
+                print(f"❌ Groq failed: {str(e)[:100]}...")
+                print(f"🔄 Falling back to Gemini")
+        
+        # Strategy 2: Try Gemini as fallback
+        if self.should_use_gemini():
+            try:
+                print("🔧 Using Gemini (fallback)")
+                model = self.get_fallback_model()
+                
+                if use_async:
+                    response = await model.ainvoke(messages)
+                else:
+                    response = model.invoke(messages)
+                
+                self.gemini_calls += 1
+                print(f"✅ Gemini success (calls: {self.gemini_calls})")
+                return response, "gemini"
+                
+            except Exception as e:
+                self.gemini_failures += 1
+                self.last_gemini_failure = current_time
+                print(f"❌ Gemini failed: {str(e)[:100]}...")
+                raise Exception(f"Both models failed - Groq: {str(e)[:50]}")
+        
+        # Strategy 3: If both are in cooldown, try anyway (emergency)
+        print("⚠️ Both models in cooldown, trying emergency fallback")
+        try:
+            model = self.get_fallback_model()
+            if use_async:
+                response = await model.ainvoke(messages)
+            else:
+                response = model.invoke(messages)
+            return response, "gemini-emergency"
+        except Exception as e:
+            raise Exception(f"All models failed: {str(e)}")
+    
+    def get_model_response_sync(self, messages):
+        """Synchronous version of get_model_response"""
+        current_time = time.time()
+        
+        # Strategy 1: Try Groq first (faster, higher limits)
+        if self.should_use_groq():
+            try:
+                print("🚀 Using Groq (primary)")
+                model = self.get_primary_model()
+                response = model.invoke(messages)
+                
+                self.groq_calls += 1
+                print(f"✅ Groq success (calls: {self.groq_calls})")
+                return response, "groq"
+                
+            except Exception as e:
+                self.groq_failures += 1
+                self.last_groq_failure = current_time
+                print(f"❌ Groq failed: {str(e)[:100]}...")
+                print(f"🔄 Falling back to Gemini")
+        
+        # Strategy 2: Try Gemini as fallback
+        if self.should_use_gemini():
+            try:
+                print("🔧 Using Gemini (fallback)")
+                model = self.get_fallback_model()
+                response = model.invoke(messages)
+                
+                self.gemini_calls += 1
+                print(f"✅ Gemini success (calls: {self.gemini_calls})")
+                return response, "gemini"
+                
+            except Exception as e:
+                self.gemini_failures += 1
+                self.last_gemini_failure = current_time
+                print(f"❌ Gemini failed: {str(e)[:100]}...")
+                raise Exception(f"Both models failed - Gemini: {str(e)[:50]}")
+        
+        # Strategy 3: If both are in cooldown, try anyway (emergency)
+        print("⚠️ Both models in cooldown, trying emergency fallback")
+        try:
+            model = self.get_fallback_model()
+            response = model.invoke(messages)
+            return response, "gemini-emergency"
+        except Exception as e:
+            raise Exception(f"All models failed: {str(e)}")
+    
+    def get_stats(self):
+        """Get usage statistics"""
+        total_calls = self.groq_calls + self.gemini_calls
+        return {
+            "total_calls": total_calls,
+            "groq_calls": self.groq_calls,
+            "gemini_calls": self.gemini_calls,
+            "groq_failures": self.groq_failures,
+            "gemini_failures": self.gemini_failures,
+            "groq_success_rate": (self.groq_calls / max(1, self.groq_calls + self.groq_failures)) * 100,
+            "gemini_success_rate": (self.gemini_calls / max(1, self.gemini_calls + self.gemini_failures)) * 100
+        }
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0
-)
+# Global hybrid model manager
+hybrid_manager = HybridModelManager()
 
 class QuestionState(MessagesState):
     query: str
@@ -35,41 +201,21 @@ class QuestionState(MessagesState):
     wiki_complete: bool
     web_complete: bool
     query_safe: bool
-    summarized_content: Annotated[list[str], operator.add]  # Store summarized content
+    summarized_content: Annotated[list[str], operator.add]
 
-
-
+# OPTIMIZATION: Simplified query check - skip expensive LLM moderation for educational content
 def check_query(state: QuestionState):
-    """Check if the query is valid and safe"""
+    """Simplified query validation without LLM calls"""
     try:
-        sys_msg = """
-        You are a strict content moderation agent. Your task is to examine user queries and determine if they contain any inappropriate, explicit, or adult (18+) content, including but not limited to:
-
-        - Sexual or pornographic content
-        - Nudity or erotic material
-        - Offensive or vulgar language
-        - Violence, abuse, or harassment with sexual context
-        - Sexually suggestive or exploitative content
-
-        If the query contains any such content, respond with:
-        "UNSAFE: This query contains inappropriate content."
-
-        If the query is safe, respond with:
-        "SAFE: Query is appropriate to proceed."
-
-        Be strict and cautious. When in doubt, flag the query.
-        """
-
-        messages = [
-            SystemMessage(content=sys_msg),
-            HumanMessage(content=state['query'])
-        ]
-
-        response = model.invoke(messages)
-        content = response.content.lower()
+        query = state['query'].lower()
         
-        # Check if query is safe
-        is_safe = "safe:" in content and "unsafe:" not in content
+        # Simple rule-based filtering for obvious inappropriate content
+        inappropriate_keywords = [
+            'porn', 'sex', 'nude', 'xxx', 'adult', 'explicit', 
+            'nsfw', 'erotic', 'sexual', 'dick', 'pussy', 'fuck'
+        ]
+        
+        is_safe = not any(keyword in query for keyword in inappropriate_keywords)
         
         print(f"🔍 Query Safety Check: {'✅ SAFE' if is_safe else '❌ UNSAFE'}")
         
@@ -86,7 +232,7 @@ def check_query(state: QuestionState):
         
         return {
             "query": state['query'],
-            "context": [f"Query safety check: {response.content}"],
+            "context": [],
             "question": state['query'],
             "query_safe": True,
             "wiki_complete": False,
@@ -99,20 +245,18 @@ def check_query(state: QuestionState):
             "query": state['query'],
             "context": [f"Error in query safety check: {str(e)}"],
             "question": state['query'],
-            "query_safe": False,
-            "wiki_complete": True,
-            "web_complete": True,
-            "summarized_content": [f"Error in query safety check: {str(e)}"]
+            "query_safe": True,  # Default to safe for educational content
+            "wiki_complete": False,
+            "web_complete": False,
+            "summarized_content": []
         }
-
-
 
 def wiki_search(state: QuestionState):
     """Search Wikipedia and return details"""
     try:
         print(f"📚 Starting Wikipedia search for: {state['query']}")
         
-        docs = WikipediaLoader(query=state['query'], load_max_docs=3).load()
+        docs = WikipediaLoader(query=state['query'], load_max_docs=2).load()  # Reduced from 3 to 2
         
         if not docs:
             print("❌ No Wikipedia documents found")
@@ -132,9 +276,10 @@ def wiki_search(state: QuestionState):
             print(f"🔗 Source: {source}")
             print(f"📝 Preview: {content_preview}...\n")
             
+            # Reduced content length to save on processing
             formatted_docs.append(
                 f'<WikipediaDocument title="{title}" source="{source}">\n'
-                f'{doc.page_content[:1000]}...\n'
+                f'{doc.page_content[:800]}...\n'  # Reduced from 1000 to 800
                 f'</WikipediaDocument>'
             )
         
@@ -150,15 +295,12 @@ def wiki_search(state: QuestionState):
             'wiki_complete': True
         }
 
-
-
-
 def web_search(state: QuestionState):
     """Search the web using Tavily"""
     try:
         print(f"🌐 Starting web search for: {state['query']}")
         
-        tool = TavilySearchResults(max_results=3)
+        tool = TavilySearchResults(max_results=2)  # Reduced from 3 to 2
         search_results = tool.invoke(state['question'])
         
         if not search_results:
@@ -180,9 +322,10 @@ def web_search(state: QuestionState):
             print(f"🔗 URL: {url}")
             print(f"📝 Preview: {content_preview}...\n")
             
+            # Reduced content length
             formatted_docs.append(
                 f'<WebDocument title="{title}" url="{url}">\n'
-                f'{content[:1000] if content else "No content"}...\n'
+                f'{content[:800] if content else "No content"}...\n'  # Reduced from 1000 to 800
                 f'</WebDocument>'
             )
         
@@ -198,8 +341,6 @@ def web_search(state: QuestionState):
             'web_complete': True
         }
 
-
-
 def should_continue_to_summary(state: QuestionState):
     """Determine if both searches are complete and query is safe"""
     if not state.get('query_safe', False):
@@ -213,48 +354,37 @@ def should_continue_to_summary(state: QuestionState):
     else:
         return "continue"
 
-
+# OPTIMIZATION: Hybrid model summarization
 def summarize_content(state: QuestionState):
-    """Summarize the collected content and store in summarized_content"""
+    """Summarize the collected content using hybrid model system"""
     try:
-        print("📊 Starting content summarization...")
+        print("📊 Starting hybrid model summarization...")
         
         # Combine all context
         all_context = "\n\n".join(state.get('context', []))
         
-        sys_msg = f"""
-        You are a helpful research assistant. Based on the following search results about the user's query: "{state['query']}", 
-        please provide a comprehensive summary that addresses their question.
-
+        # Simplified system message to reduce token usage
+        sys_msg = f"""Based on the search results for "{state['query']}", provide a concise, helpful summary. 
+        Include key facts and information. Be direct and informative.
+        
         Search Results:
-        {all_context}
-
-        Instructions:
-        1. Provide a clear, well-structured summary
-        2. Include specific information and details found in the sources
-        3. Organize the information logically
-        4. If information is limited, acknowledge this
-        5. Focus on actionable insights for the user
-
-        Please provide your summary:
-        """
+        {all_context[:2000]}"""  # Limit context length to reduce tokens
 
         messages = [
             SystemMessage(content=sys_msg),
-            HumanMessage(content=f"Please summarize the search results for: {state['query']}")
+            HumanMessage(content=f"Summarize: {state['query']}")
         ]
 
-        response = model.invoke(messages)
+        # Use hybrid model manager synchronously
+        response, model_used = hybrid_manager.get_model_response_sync(messages)
         
-        print("✅ Summary generated successfully")
-        print(response.content)
+        print(f"✅ Summary generated successfully using {model_used}")
         
         summary_text = response.content
-        formatted_summary = f"\n{'='*50}\nFINAL SUMMARY:\n{'='*50}\n{summary_text}"
         
         return {
-            "context": [formatted_summary],
-            "summarized_content": [summary_text]  # Store clean summary for relevance filter
+            "context": [summary_text],  # Simplified - just the summary
+            "summarized_content": [summary_text]
         }
         
     except Exception as e:
@@ -265,6 +395,7 @@ def summarize_content(state: QuestionState):
             "summarized_content": [error_msg]
         }
 
+# OPTIMIZATION: Simplified graph structure
 builder = StateGraph(QuestionState)
 
 builder.add_node("check_query", check_query)
@@ -277,18 +408,12 @@ builder.add_edge("check_query", "wiki_search")
 builder.add_edge("check_query", "web_search")
 builder.add_edge("wiki_search", "summarize_content")
 builder.add_edge("web_search", "summarize_content")
-
-# End after summarization
 builder.add_edge("summarize_content", END)
 
 Parallel_Search: CompiledStateGraph = builder.compile()
 
-
-
-
-
 ###########################################################################################################
-# MAIN GRAPH 
+# MAIN GRAPH - HYBRID MODEL VERSION
 
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -299,32 +424,13 @@ load_dotenv()
 
 current_date = datetime.now().strftime("%A, %B %d, %Y")
 
-
-MAX_SEARCH_RETRIES = 5
-
-
-
-relevance_evaluator = create_async_llm_as_judge(
-    judge=model,
-    prompt=RAG_RETRIEVAL_RELEVANCE_PROMPT + f"\n\nThe current date is {current_date}.",
-    feedback_key="retrieval_relevance",
-)
-
-helpfulness_evaluator = create_async_llm_as_judge(
-    judge=model,
-    prompt=RAG_HELPFULNESS_PROMPT
-    + f'\nReturn "true" if the answer is helpful, and "false" otherwise.\n\nThe current date is {current_date}.',
-    feedback_key="helpfulness",
-)
-
-
+# OPTIMIZATION: Reduced max retries to save API calls
+MAX_SEARCH_RETRIES = 2  # Reduced from 5 to 2
 
 class GraphState(MessagesState):
     original_question: str
     attempted_search_queries: list[str]
-    summarized_content: Annotated[list[str], operator.add]  # pulled from summarize step
-
-
+    summarized_content: Annotated[list[str], operator.add]
 
 @tool
 def web_search_tool(query: str) -> str:
@@ -332,69 +438,28 @@ def web_search_tool(query: str) -> str:
     Use this tool to find up-to-date information about any topic."""
     return f"web_search_tool_called_with_query:{query}"
 
-# Bind the tool to the model
-model_with_tools = model.bind_tools([web_search_tool])
-
-
-
-
-async def relevance_filter(state: GraphState):
-
-    last_message = state["messages"][-1]
-
-    summarized_context = state['summarized_content']
-    # FIXED: Ensure we're processing a tool message
-    if not (last_message.type == "tool" and last_message.name == "web_search_tool"):
-        raise Exception(f"Relevance filter node must be called after web search, got message type: {last_message.type}")
-    
-    search_results_content = summarized_context
-
-
+# OPTIMIZATION: Use hybrid model initialization
+def get_model_with_tools():
+    """Get model with tools bound - hybrid system"""
+    # Try Groq first if available, then Gemini
     try:
-        if isinstance(search_results_content, str):
-            search_data = json.loads(search_results_content)
-        else:
-            search_data = search_results_content
-    except json.JSONDecodeError:
-        search_data = {"results": [{"content": search_results_content}]}
+        if hybrid_manager.should_use_groq():
+            model = hybrid_manager.get_primary_model()
+            print("🚀 Using Groq for tool binding")
+            return model.bind_tools([web_search_tool])
+    except Exception as e:
+        print(f"⚠️ Groq tool binding failed: {e}")
     
-    search_results = search_data
-    
-    filtered_results = []
-    
-    semaphore = asyncio.Semaphore(2)
+    # Fallback to Gemini
+    try:
+        model = hybrid_manager.get_fallback_model()
+        print("🔧 Using Gemini for tool binding")
+        return model.bind_tools([web_search_tool])
+    except Exception as e:
+        print(f"❌ Both model tool binding failed: {e}")
+        raise e
 
-    async def evaluate_with_semaphore(result):
-        async with semaphore:
-            try:
-                eval_result = await relevance_evaluator(
-                    inputs=state["attempted_search_queries"][-1], 
-                    context=result
-                )
-                return result, eval_result
-            except Exception as e:
-                print(f"Evaluation error: {e}")
-                return result, {"score": True} 
-
-    tasks = [evaluate_with_semaphore(result) for result in search_results]
-    
-    for completed_task in asyncio.as_completed(tasks):
-        result, eval_result = await completed_task
-        if eval_result.get("score", False):
-            filtered_results.append(result)
-
-    # Create filtered message
-    filtered_message = ToolMessage(
-        content=json.dumps({"results": filtered_results}),
-        tool_call_id=last_message.tool_call_id,
-        name=last_message.name
-    )
-    
-    return {"messages": [filtered_message]}
-
-
-
-
+# OPTIMIZATION: Removed expensive relevance filter
 async def should_continue(state: GraphState):
     if len(state["attempted_search_queries"]) >= MAX_SEARCH_RETRIES:
         return END
@@ -404,49 +469,42 @@ async def should_continue(state: GraphState):
     
     if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
         return "web_search"
-    return "reflect"
+    return END  # Skip reflection to save API calls
 
-
-
+# OPTIMIZATION: Hybrid model call
 async def call_model(state: GraphState):
     system_message = SystemMessage(content=f"""
-    You are a helpful research assistant with access to web search capabilities. Your task is to answer user questions comprehensively.
-    
+    You are a helpful research assistant. Answer questions comprehensively using web search when needed.
     Current date: {current_date}
     
-    IMPORTANT: You have access to a web_search_tool that can search the internet for current information. Use this tool when:
-    1. You need current or recent information
-    2. The user asks about specific facts, research, or data
-    3. You want to provide a comprehensive answer with up-to-date information
-    4. The question requires information beyond your training data
-    
-    Instructions:
-    - ALWAYS use the web_search_tool for questions that would benefit from current information
-    - Provide comprehensive answers based on search results
-    - Be helpful and informative
-    
-    Remember: You CAN and SHOULD use the web_search_tool to get current information!
+    Use the web_search_tool for questions requiring current information or specific facts.
+    Be direct and helpful in your responses.
     """)
     
     conversation_messages = [system_message] + state["messages"]
     
-    response = await model_with_tools.ainvoke(conversation_messages)
-    
-    print("$"*50)
-    print("response tool_calls:", response.tool_calls)
-    print("response content:", response.content[:200] + "..." if len(response.content) > 200 else response.content)
-    
-    # Handle tool calls properly
-    if hasattr(response, 'tool_calls') and response.tool_calls:
-        search_query = response.tool_calls[0]['args']['query']
-        return {
-            "messages": [response],
-            "attempted_search_queries": state["attempted_search_queries"] + [search_query],
-        }
-    return {"messages": [response]}
-
-
-
+    try:
+        # Get model with tools using hybrid system
+        model_with_tools = get_model_with_tools()
+        response = await model_with_tools.ainvoke(conversation_messages)
+        
+        print("$"*50)
+        print("response tool_calls:", getattr(response, 'tool_calls', []))
+        print("response content:", response.content[:200] + "..." if len(response.content) > 200 else response.content)
+        
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            search_query = response.tool_calls[0]['args']['query']
+            return {
+                "messages": [response],
+                "attempted_search_queries": state["attempted_search_queries"] + [search_query],
+            }
+        return {"messages": [response]}
+        
+    except Exception as e:
+        print(f"❌ Hybrid model call failed: {e}")
+        # Return error message instead of crashing
+        error_response = HumanMessage(content=f"I encountered a technical issue: {str(e)[:100]}. Please try again.")
+        return {"messages": [error_response]}
 
 async def web_search(state: GraphState):
     last_message = state["messages"][-1]
@@ -456,7 +514,6 @@ async def web_search(state: GraphState):
     
     tool_call = last_message.tool_calls[0]
     
-    # FIXED: Properly invoke the subgraph
     subgraph_input = {
         "query": tool_call['args']['query'],
         "question": tool_call['args']['query'],
@@ -464,14 +521,13 @@ async def web_search(state: GraphState):
         "wiki_complete": False,
         "web_complete": False,
         "query_safe": True,
-        "messages": [],  # Required by MessagesState
-        "summarized_content": []  # Initialize the new field
+        "messages": [],
+        "summarized_content": []
     }
     
     try:
         search_results = await Parallel_Search.ainvoke(subgraph_input)
         
-        # Extract the context and summarized content from the subgraph results
         context_results = search_results.get('context', [])
         summarized_results = search_results.get('summarized_content', [])
         
@@ -479,96 +535,37 @@ async def web_search(state: GraphState):
         print(f"Context results: {len(context_results)} items")
         print(f"Summarized results: {len(summarized_results)} items")
         
-        # FIXED: Ensure we have proper results format
         if not context_results:
             context_results = ["No search results found."]
         if not summarized_results:
             summarized_results = ["No summarized content available."]
         
+        # Simplified tool message
         tool_message = ToolMessage(
-            content=json.dumps({
-                "results": [{"content": result} for result in context_results],
-                "summarized_results": [{"content": summary} for summary in summarized_results]
-            }),
+            content=json.dumps({"results": context_results}),
             tool_call_id=tool_call['id'],
             name="web_search_tool"
         )
         
         return {
             "messages": [tool_message],
-            "context": context_results,
-            "summarized_content": summarized_results  # Pass the summarized content from subgraph
+            "summarized_content": summarized_results
         }
         
     except Exception as e:
         print(f"Error in subgraph execution: {e}")
         error_message = f"Search error: {str(e)}"
         tool_message = ToolMessage(
-            content=json.dumps({"results": [{"content": error_message}]}),
+            content=json.dumps({"results": [error_message]}),
             tool_call_id=tool_call['id'],
             name="web_search_tool"
         )
         return {
             "messages": [tool_message],
-            "context": [error_message],
             "summarized_content": [error_message]
         }
 
-
-
-async def reflect(state: GraphState):
-    last_message = state["messages"][-1]
-    
-    # Only evaluate non-tool messages
-    if last_message.type == "tool":
-        return {}
-    
-    try:
-        helpfulness_eval_result = await helpfulness_evaluator(
-            inputs=state["original_question"], 
-            outputs=last_message.content
-        )
-        
-        if not helpfulness_eval_result.get("score", False):
-            reflection_message = HumanMessage(content=f"""
-                    I originally asked you the following question:
-
-                    <original_question>
-                    {state["original_question"]}
-                    </original_question>
-
-                    Your answer was not helpful for the following reason:
-
-                    <reason>
-                    {helpfulness_eval_result.get('comment', 'The answer was not helpful.')}
-                    </reason>
-
-                    Please check the conversation history carefully and try again. You may choose to fetch more information if you think the answer
-                    to the original question is not somewhere in the conversation, but carefully consider if the answer is already in the conversation.
-
-                    You have already attempted to answer the original question using the following search queries,
-                    so if you choose to search again, you must rephrase your search query to be different from the ones below to avoid fetching redundant information:
-
-                    <attempted_search_queries>
-                    {state['attempted_search_queries']}
-                    </attempted_search_queries>
-
-                    As a reminder, check the previous conversation history and fetched context carefully before searching again!
-            """)
-            return {"messages": [reflection_message]}
-    except Exception as e:
-        print(f"Error in reflection: {e}")
-    
-    return {}
-
-async def retry_or_end(state: GraphState):
-    if state["messages"][-1].type == "human":
-        return "agent"
-    return END
-
-
-
-# FIXED: Main workflow definition
+# OPTIMIZATION: Simplified workflow without expensive evaluations
 workflow = StateGraph(GraphState, input=MessagesState, output=MessagesState)
 
 workflow.add_node(
@@ -580,32 +577,35 @@ workflow.add_node(
 )
 workflow.add_node("agent", call_model)
 workflow.add_node("web_search", web_search)
-workflow.add_node("relevance_filter", relevance_filter)
-workflow.add_node("reflect", reflect)
 
 workflow.add_edge(START, "store_original_question")
 workflow.add_edge("store_original_question", "agent")
-workflow.add_conditional_edges("agent", should_continue, ["web_search", "reflect", END])
-workflow.add_edge("web_search", "relevance_filter")
-workflow.add_edge("relevance_filter", "agent")
-workflow.add_conditional_edges("reflect", retry_or_end, ["agent", END])
+workflow.add_conditional_edges("agent", should_continue, ["web_search", END])
+workflow.add_edge("web_search", "agent")
 
 agent = workflow.compile()
 
-
-# FIXED: Remove the problematic await call outside function
+# OPTIMIZATION: Simplified main function with stats
 async def run_main():
     """Main function for testing - only runs when called explicitly"""
-    config = {"recursion_limit": 50}
+    config = {"recursion_limit": 20}  # Reduced from 50 to 20
     user_query = input("Enter your question: ")
+    
+    print("\n🚀 Starting hybrid model system...")
+    stats_before = hybrid_manager.get_stats()
+    print(f"📊 Initial stats: {stats_before}")
+    
     async for chunk in agent.astream(
         {"messages": [HumanMessage(content=user_query)]},
         config=config
     ):
         print(chunk)
         print("-"*40)
+    
+    stats_after = hybrid_manager.get_stats()
+    print(f"\n📊 Final stats: {stats_after}")
+    print(f"🎯 Calls this session: Groq={stats_after['groq_calls']-stats_before['groq_calls']}, Gemini={stats_after['gemini_calls']-stats_before['gemini_calls']}")
 
-# Only run if this file is executed directly (not imported)
 if __name__ == "__main__":
     import asyncio
     asyncio.run(run_main())

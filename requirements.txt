@@ -11,6 +11,7 @@ langchain-community
 langchain-openai
 langchain-google-genai
 langchain-tavily
+langchain-groq
 openevals
 wikipedia
 python-dotenv

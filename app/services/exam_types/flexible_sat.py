@@ -85,7 +85,6 @@ class FlexibleSATExamType(BaseExamType):
             
             response = f"✅ You selected: {selected_subject}\n\n"
             response += f"📚 Choose your practice type for {selected_subject}:\n\n"
-            response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
             response += self.format_options_list(topic_options, f"{selected_subject} Practice Types")
             
             return {
@@ -105,7 +104,7 @@ class FlexibleSATExamType(BaseExamType):
             }
     
     def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle practice option selection for SAT (topic-based only)"""
+        """Handle practice option selection for SAT (topic-based only) - FIXED: No more empty responses"""
         subject = user_state.get('subject')
         if not subject:
             return {
@@ -131,9 +130,14 @@ class FlexibleSATExamType(BaseExamType):
                 practice_type = "topic"
                 num_questions = 25
             
-            # FIXED: Return empty response to skip loading message
+            # FIXED: Return proper loading message instead of empty response
+            loading_message = f"✅ You selected: {selected_option}\n\n"
+            loading_message += f"🔄 Loading {num_questions} SAT {subject} questions...\n"
+            loading_message += f"📚 {selected_option}\n"
+            loading_message += f"⏱️ This may take a moment..."
+            
             return {
-                'response': '',  # Empty response - no loading message
+                'response': loading_message,
                 'next_stage': 'loading_questions',
                 'state_updates': {
                     'practice_type': practice_type,
@@ -184,8 +188,10 @@ class FlexibleSATExamType(BaseExamType):
                     'state_updates': {'stage': 'selecting_practice_option'}
                 }
             
-            # Format first question
+            # Format first question - FIXED: Remove the fetching message from here
             first_question = self._format_question(questions[0], 1, len(questions))
+            
+            # FIXED: Clean intro without the fetching message
             intro = f"🎯 Starting SAT {subject} Practice\n"
             intro += f"📚 {practice_description}\n"
             intro += f"📊 {len(questions)} practice questions\n"
