@@ -142,7 +142,6 @@ class FlexibleJAMBExamType(BaseExamType):
                 topic_options = self.topic_fetcher.get_practice_options('jamb', subject)
                 response = f"✅ You selected: Practice by Topic\n\n"
                 response += f"📚 Choose a topic for {subject}:\n\n"
-                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(topic_options, f"{subject} Topics")
                 
             else:  # year mode
@@ -150,7 +149,6 @@ class FlexibleJAMBExamType(BaseExamType):
                 year_options = self._get_available_years('jamb', subject)
                 response = f"✅ You selected: Practice by Year\n\n"
                 response += f"📅 Choose a year for {subject}:\n\n"
-                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(year_options, f"Available Years")
             
             return {
@@ -169,7 +167,7 @@ class FlexibleJAMBExamType(BaseExamType):
             }
     
     def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle specific topic or year selection"""
+        """Handle specific topic or year selection - FIXED: No more empty responses"""
         subject = user_state.get('subject')
         practice_mode = user_state.get('practice_mode')
         
@@ -198,9 +196,15 @@ class FlexibleJAMBExamType(BaseExamType):
                     practice_type = "topic"
                     num_questions = 25
                 
-                # FIXED: Return empty response to skip loading message
+                # FIXED: Return proper loading message instead of empty response
+                exam = user_state.get('exam', '').upper()
+                loading_message = f"✅ You selected: {selected_option}\n\n"
+                loading_message += f"🔄 Loading {num_questions} {exam} {subject} questions...\n"
+                loading_message += f"📚 {selected_option}\n"
+                loading_message += f"⏱️ This may take a moment..."
+                
                 return {
-                    'response': '',  # Empty response - no loading message
+                    'response': loading_message,
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': practice_type,
@@ -225,9 +229,15 @@ class FlexibleJAMBExamType(BaseExamType):
             if selected_year:
                 num_questions = 50  # Standard JAMB questions per subject
                 
-                # FIXED: Return empty response to skip loading message
+                # FIXED: Return proper loading message instead of empty response
+                exam = user_state.get('exam', '').upper()
+                loading_message = f"✅ You selected: {selected_year}\n\n"
+                loading_message += f"🔄 Loading {num_questions} {exam} {subject} questions from {selected_year}...\n"
+                loading_message += f"📅 {exam} {selected_year} - Complete {subject}\n"
+                loading_message += f"⏱️ This may take a moment..."
+                
                 return {
-                    'response': '',  # Empty response - no loading message
+                    'response': loading_message,
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': 'year',
@@ -286,8 +296,10 @@ class FlexibleJAMBExamType(BaseExamType):
                     'state_updates': {'stage': 'selecting_practice_option'}
                 }
             
-            # Format first question
+            # Format first question - FIXED: Remove the fetching message from here
             first_question = self._format_question(questions[0], 1, len(questions))
+            
+            # FIXED: Clean intro without the fetching message
             intro = f"🎯 Starting JAMB {subject} Practice\n"
             intro += f"📚 {practice_description}\n"
             intro += f"📊 {len(questions)} real past questions\n"
