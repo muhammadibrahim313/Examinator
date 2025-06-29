@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class PersonalizedExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with FIXED loading and strict input validation
+    Enhanced exam type handler with FIXED immediate loading - no loading messages
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -59,7 +59,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             return True
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """FIXED: Handle loading stages properly to prevent double input issue"""
+        """FIXED: Handle loading stages properly to prevent loading messages"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         message_lower = message.lower().strip()
@@ -73,10 +73,15 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'next_handler': None
             }
         
-        # FIXED: Handle loading_questions stage - trigger async loading immediately
+        # FIXED: Handle loading_questions stage - DO NOT return loading message, trigger immediate loading
         if stage == 'loading_questions':
-            logger.info(f"🔄 IMMEDIATE LOADING: Triggering question loading for {user_phone}")
-            return self._trigger_immediate_loading(user_phone, user_state)
+            logger.info(f"🔄 IMMEDIATE LOADING TRIGGER: Stage is loading_questions for {user_phone}")
+            return {
+                'response': '',  # Empty response - will be replaced by async loading result
+                'state_updates': {'stage': 'async_loading'},
+                'next_handler': f'{exam}_handler',
+                'immediate_async_load': True  # Signal for immediate async processing
+            }
         
         # FIXED: Handle async_loading stage - user shouldn't send messages during this
         if stage == 'async_loading':
@@ -131,51 +136,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'response': "Sorry, something went wrong. Please try again or send 'restart' to start over.",
                 'state_updates': {},
                 'next_handler': f'{exam}_handler'
-            }
-    
-    def _trigger_immediate_loading(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """FIXED: Trigger immediate question loading without waiting for user input"""
-        try:
-            logger.info(f"🔄 IMMEDIATE LOADING: Starting question fetch for {user_phone}")
-            
-            # Get the required parameters
-            subject = user_state.get('subject')
-            practice_type = user_state.get('practice_type', 'mixed')
-            selected_option = user_state.get('selected_option', 'Mixed Practice')
-            num_questions = user_state.get('questions_needed', 25)
-            
-            if not subject:
-                logger.error(f"❌ LOADING ERROR: No subject found for {user_phone}")
-                return {
-                    'response': "Session error. Please send 'restart' to start over.",
-                    'state_updates': {'stage': 'selecting_subject'},
-                    'next_handler': f'{user_state.get("exam")}_handler'
-                }
-            
-            logger.info(f"📊 LOADING PARAMS: {user_state.get('exam')} {subject} - {practice_type} - {selected_option} - {num_questions} questions")
-            
-            # Return loading message and set up for immediate async processing
-            exam = user_state.get('exam', '').upper()
-            response = f"⏳ Loading {num_questions} {exam} {subject} questions...\n"
-            response += f"📚 {selected_option}\n"
-            response += f"🔍 Searching for authentic past questions..."
-            
-            return {
-                'response': response,
-                'state_updates': {
-                    'stage': 'async_loading',
-                    'loading_start_time': user_state.get('current_time', 0)
-                },
-                'next_handler': f'{user_state.get("exam")}_handler',
-                'async_task': 'load_questions'  # Signal for immediate async processing
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ CRITICAL ERROR in immediate loading: {str(e)}", exc_info=True)
-            return {
-                'response': "Sorry, there was an error loading questions. Please try selecting another option.",
-                'state_updates': {'stage': 'selecting_practice_option'},
-                'next_handler': f'{user_state.get("exam")}_handler'
             }
     
     def _handle_navigation_commands(self, message_lower: str, user_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
