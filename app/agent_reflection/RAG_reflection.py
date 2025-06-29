@@ -593,7 +593,9 @@ workflow.add_conditional_edges("reflect", retry_or_end, ["agent", END])
 agent = workflow.compile()
 
 
-async def main():
+# FIXED: Remove the problematic await call outside function
+async def run_main():
+    """Main function for testing - only runs when called explicitly"""
     config = {"recursion_limit": 50}
     user_query = input("Enter your question: ")
     async for chunk in agent.astream(
@@ -603,5 +605,7 @@ async def main():
         print(chunk)
         print("-"*40)
 
+# Only run if this file is executed directly (not imported)
 if __name__ == "__main__":
-    await main()
+    import asyncio
+    asyncio.run(run_main())
