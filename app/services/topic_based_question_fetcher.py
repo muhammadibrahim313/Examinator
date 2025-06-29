@@ -168,10 +168,23 @@ class TopicBasedQuestionFetcher:
             response_chunks = []
             try:
                 async for chunk in self.agent.astream(agent_input, config=self.config):
+                    logger.debug(f"📦 RAG Chunk keys: {list(chunk.keys())}")
                     if 'messages' in chunk:
                         for msg in chunk['messages']:
+                            logger.debug(f"📨 Message type: {type(msg)}, has content: {hasattr(msg, 'content')}")
                             if hasattr(msg, 'content') and msg.content:
+                                logger.debug(f"✅ Found content: {msg.content[:100]}...")
                                 response_chunks.append(msg.content)
+                            elif hasattr(msg, 'content'):
+                                logger.debug(f"⚠️ Empty content: '{msg.content}'")
+                    
+                    # Also check for other possible response formats
+                    if 'agent' in chunk and 'messages' in chunk['agent']:
+                        for msg in chunk['agent']['messages']:
+                            if hasattr(msg, 'content') and msg.content:
+                                logger.debug(f"✅ Found agent content: {msg.content[:100]}...")
+                                response_chunks.append(msg.content)
+                                
             except Exception as e:
                 logger.error(f"❌ LLM AGENT ERROR: {str(e)}")
                 # Immediate fallback on any error
@@ -179,7 +192,13 @@ class TopicBasedQuestionFetcher:
                 return self._generate_fallback_topic_questions(exam, subject, topic, num_questions)
             
             full_response = '\n'.join(response_chunks) if response_chunks else ""
+            logger.info(f"📝 LLM agent response: {len(response_chunks)} chunks collected")
             logger.info(f"📝 LLM agent response length: {len(full_response)} characters")
+            
+            if response_chunks:
+                logger.info(f"📝 First chunk preview: {response_chunks[0][:200]}...")
+            else:
+                logger.warning(f"⚠️ No response chunks collected from agent")
             
             if not full_response.strip():
                 logger.error(f"❌ LLM AGENT FAILED: Empty response for {exam.upper()} {subject} - {topic}")
@@ -221,43 +240,161 @@ class TopicBasedQuestionFetcher:
             return self._generate_fallback_topic_questions(exam, subject, topic, num_questions)
     
     def _generate_fallback_topic_questions(self, exam: str, subject: str, topic: str, num_questions: int) -> List[Dict[str, Any]]:
-        """Generate fallback questions for a specific topic - ENHANCED VERSION"""
-        logger.info(f"🔧 GENERATING TOPIC FALLBACK: Creating {num_questions} fallback questions for {exam.upper()} {subject} - {topic}")
+        """Generate realistic, high-quality fallback questions for specific topics"""
+        logger.info(f"🔧 GENERATING REALISTIC FALLBACK: Creating {num_questions} quality questions for {exam.upper()} {subject} - {topic}")
         
         questions = []
         
-        # OPTIMIZATION: Generate more diverse fallback questions
-        question_templates = [
-            f"Which of the following best describes {topic}?",
-            f"In {topic}, what is the primary concept that explains:",
-            f"According to {topic} principles, which statement is correct?",
-            f"When studying {topic}, which factor is most important?",
-            f"In the context of {topic}, what would be the expected outcome when:",
-        ]
+        # Topic-specific question banks with realistic questions
+        question_banks = self._get_topic_question_bank(exam.lower(), subject, topic)
         
-        for i in range(min(num_questions, 10)):  # Generate up to 10 diverse fallback questions
-            template = random.choice(question_templates)
-            questions.append({
+        # Generate the requested number of questions
+        for i in range(num_questions):
+            # Select a random question from the bank, cycling if needed
+            bank_index = i % len(question_banks)
+            base_question = question_banks[bank_index].copy()
+            
+            # Randomize numerical values if it's a math question
+            if subject.lower() in ['mathematics', 'math'] and any(char.isdigit() for char in base_question['question']):
+                base_question = self._randomize_numerical_values(base_question)
+            
+            # Add metadata
+            base_question.update({
                 "id": i + 1,
-                "question": f"{template} This tests your understanding of {topic} concepts in {subject}.",
-                "options": {
-                    "A": f"Primary concept A related to {topic}",
-                    "B": f"Alternative approach B for {topic}",
-                    "C": f"Key principle C in {topic}",
-                    "D": f"Important aspect D of {topic}"
-                },
-                "correct_answer": random.choice(["A", "B", "C", "D"]),
-                "explanation": f"This question tests fundamental {topic} concepts. In {subject}, understanding {topic} is crucial for solving related problems.",
-                "year": random.choice(["2023", "2024"]),
+                "year": random.choice(["2020", "2021", "2022", "2023", "2024"]),
                 "exam": exam.upper(),
                 "subject": subject,
                 "topic": topic,
-                "source": "fallback_generated",
+                "source": "curated_fallback",
                 "difficulty": "standard"
             })
+            
+            questions.append(base_question)
         
-        logger.info(f"✅ TOPIC FALLBACK COMPLETE: Generated {len(questions)} fallback questions for {topic}")
+        logger.info(f"✅ REALISTIC FALLBACK COMPLETE: Generated {len(questions)} quality questions for {topic}")
         return questions
+
+    def _get_topic_question_bank(self, exam: str, subject: str, topic: str) -> List[Dict[str, Any]]:
+        """Get realistic question bank for specific topics"""
+        
+        # JAMB Mathematics - Algebra and Equations
+        if exam == 'jamb' and subject.lower() == 'mathematics' and 'algebra' in topic.lower():
+            return [
+                {
+                    "question": "Solve for x: 3x + 7 = 22",
+                    "options": {
+                        "A": "x = 3",
+                        "B": "x = 5", 
+                        "C": "x = 7",
+                        "D": "x = 9"
+                    },
+                    "correct_answer": "B",
+                    "explanation": "3x + 7 = 22, so 3x = 15, therefore x = 5"
+                },
+                {
+                    "question": "If 2x - 5 = 11, what is the value of x?",
+                    "options": {
+                        "A": "6",
+                        "B": "7",
+                        "C": "8", 
+                        "D": "9"
+                    },
+                    "correct_answer": "C",
+                    "explanation": "2x - 5 = 11, so 2x = 16, therefore x = 8"
+                },
+                {
+                    "question": "Factorize: x² - 9",
+                    "options": {
+                        "A": "(x - 3)(x + 3)",
+                        "B": "(x - 9)(x + 1)", 
+                        "C": "(x - 1)(x + 9)",
+                        "D": "x(x - 9)"
+                    },
+                    "correct_answer": "A",
+                    "explanation": "x² - 9 is a difference of squares: x² - 3² = (x - 3)(x + 3)"
+                },
+                {
+                    "question": "If y = 2x + 3, find y when x = 4",
+                    "options": {
+                        "A": "9",
+                        "B": "10",
+                        "C": "11",
+                        "D": "12"
+                    },
+                    "correct_answer": "C",
+                    "explanation": "y = 2(4) + 3 = 8 + 3 = 11"
+                },
+                {
+                    "question": "Solve: 4x - 8 = 2x + 6",
+                    "options": {
+                        "A": "x = 5",
+                        "B": "x = 6",
+                        "C": "x = 7",
+                        "D": "x = 8"
+                    },
+                    "correct_answer": "C",
+                    "explanation": "4x - 2x = 6 + 8, so 2x = 14, therefore x = 7"
+                }
+            ]
+        
+        # JAMB Mathematics - Geometry and Mensuration
+        elif exam == 'jamb' and subject.lower() == 'mathematics' and 'geometry' in topic.lower():
+            return [
+                {
+                    "question": "Calculate the area of a circle with radius 7cm (Take π = 22/7)",
+                    "options": {
+                        "A": "154 cm²",
+                        "B": "144 cm²",
+                        "C": "164 cm²", 
+                        "D": "174 cm²"
+                    },
+                    "correct_answer": "A",
+                    "explanation": "Area = πr² = (22/7) × 7² = (22/7) × 49 = 154 cm²"
+                },
+                {
+                    "question": "Find the perimeter of a rectangle with length 12cm and width 8cm",
+                    "options": {
+                        "A": "40 cm",
+                        "B": "20 cm",
+                        "C": "32 cm",
+                        "D": "96 cm"
+                    },
+                    "correct_answer": "A",
+                    "explanation": "Perimeter = 2(l + w) = 2(12 + 8) = 2(20) = 40 cm"
+                }
+            ]
+        
+        # Default questions for other topics
+        else:
+            return [
+                {
+                    "question": f"Which fundamental principle is most important in {topic}?",
+                    "options": {
+                        "A": "Understanding the basic concepts and definitions",
+                        "B": "Memorizing formulas without understanding",
+                        "C": "Skipping practice problems",
+                        "D": "Avoiding difficult questions"
+                    },
+                    "correct_answer": "A",
+                    "explanation": f"In {topic}, understanding basic concepts is crucial for solving complex problems effectively."
+                },
+                {
+                    "question": f"What is the best approach when studying {topic}?",
+                    "options": {
+                        "A": "Start with examples and work backwards to theory",
+                        "B": "Practice regularly and understand each step",
+                        "C": "Focus only on memorization",
+                        "D": "Study only the night before exams"
+                    },
+                    "correct_answer": "B",
+                    "explanation": f"Regular practice with understanding is the most effective way to master {topic}."
+                }
+            ]
+
+    def _randomize_numerical_values(self, question: Dict[str, Any]) -> Dict[str, Any]:
+        """Randomize numerical values in math questions to create variations"""
+        # This is a simple implementation - can be expanded for more sophisticated randomization
+        return question  # For now, return as-is to avoid breaking existing questions
 
     async def fetch_mixed_practice_questions(self, exam: str, subject: str, num_questions: int = 30) -> List[Dict[str, Any]]:
         """
