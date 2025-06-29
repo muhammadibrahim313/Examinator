@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class PersonalizedExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with navigation, FAQ, and test control features
+    Enhanced exam type handler with FIXED loading and strict input validation
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -26,9 +26,13 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 self.exam_registry.is_exam_supported(exam))
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Enhanced logic to determine when to use LLM"""
+        """FIXED: Only use LLM for genuine help requests, not during loading"""
         stage = user_state.get('stage', '')
         message_lower = message.lower().strip()
+        
+        # NEVER use LLM during loading stages - this was causing the double input issue
+        if stage in ['loading_questions', 'async_loading']:
+            return False
         
         # Always use LLM for FAQ and help queries
         faq_keywords = ['help', 'faq', 'question', 'how', 'what', 'why', 'explain', 'tell me']
@@ -55,7 +59,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             return True
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced structured logic with navigation and test control"""
+        """FIXED: Handle loading stages properly to prevent double input issue"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         message_lower = message.lower().strip()
@@ -69,6 +73,19 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'next_handler': None
             }
         
+        # FIXED: Handle loading_questions stage - trigger async loading immediately
+        if stage == 'loading_questions':
+            logger.info(f"🔄 IMMEDIATE LOADING: Triggering question loading for {user_phone}")
+            return self._trigger_immediate_loading(user_phone, user_state)
+        
+        # FIXED: Handle async_loading stage - user shouldn't send messages during this
+        if stage == 'async_loading':
+            return {
+                'response': "⏳ Still loading questions... Please wait a moment.",
+                'state_updates': {},
+                'next_handler': f'{exam}_handler'
+            }
+        
         # Handle navigation commands
         navigation_result = self._handle_navigation_commands(message_lower, user_state)
         if navigation_result:
@@ -80,17 +97,13 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             if test_control_result:
                 return test_control_result
         
-        # Handle invalid inputs with helpful messages
+        # FIXED: Strict input validation with helpful error messages
         validation_result = self._validate_and_guide_input(message, stage, user_state)
         if validation_result:
             return validation_result
         
         try:
             exam_type = self.exam_registry.get_exam_type(exam)
-            
-            # Handle loading_questions stage asynchronously
-            if stage == 'loading_questions':
-                return self._handle_question_loading_async(user_phone, user_state, exam_type)
             
             # Regular handling for other stages
             result = exam_type.handle_stage(stage, user_phone, message, user_state)
@@ -118,6 +131,51 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'response': "Sorry, something went wrong. Please try again or send 'restart' to start over.",
                 'state_updates': {},
                 'next_handler': f'{exam}_handler'
+            }
+    
+    def _trigger_immediate_loading(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Trigger immediate question loading without waiting for user input"""
+        try:
+            logger.info(f"🔄 IMMEDIATE LOADING: Starting question fetch for {user_phone}")
+            
+            # Get the required parameters
+            subject = user_state.get('subject')
+            practice_type = user_state.get('practice_type', 'mixed')
+            selected_option = user_state.get('selected_option', 'Mixed Practice')
+            num_questions = user_state.get('questions_needed', 25)
+            
+            if not subject:
+                logger.error(f"❌ LOADING ERROR: No subject found for {user_phone}")
+                return {
+                    'response': "Session error. Please send 'restart' to start over.",
+                    'state_updates': {'stage': 'selecting_subject'},
+                    'next_handler': f'{user_state.get("exam")}_handler'
+                }
+            
+            logger.info(f"📊 LOADING PARAMS: {user_state.get('exam')} {subject} - {practice_type} - {selected_option} - {num_questions} questions")
+            
+            # Return loading message and set up for immediate async processing
+            exam = user_state.get('exam', '').upper()
+            response = f"⏳ Loading {num_questions} {exam} {subject} questions...\n"
+            response += f"📚 {selected_option}\n"
+            response += f"🔍 Searching for authentic past questions..."
+            
+            return {
+                'response': response,
+                'state_updates': {
+                    'stage': 'async_loading',
+                    'loading_start_time': user_state.get('current_time', 0)
+                },
+                'next_handler': f'{user_state.get("exam")}_handler',
+                'async_task': 'load_questions'  # Signal for immediate async processing
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ CRITICAL ERROR in immediate loading: {str(e)}", exc_info=True)
+            return {
+                'response': "Sorry, there was an error loading questions. Please try selecting another option.",
+                'state_updates': {'stage': 'selecting_practice_option'},
+                'next_handler': f'{user_state.get("exam")}_handler'
             }
     
     def _handle_navigation_commands(self, message_lower: str, user_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -320,7 +378,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         return None
     
     def _validate_and_guide_input(self, message: str, stage: str, user_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Validate input and provide helpful guidance for invalid inputs"""
+        """FIXED: Strict validation with helpful error messages - no LLM fallbacks"""
         message_clean = message.strip()
         
         # Check for common invalid inputs in selection stages
@@ -346,7 +404,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     response = f"❌ Invalid choice: {choice}\n\n"
                     response += f"Please select a number between 1 and {valid_range}.\n\n"
                     response += options_text
-                    response += "\n\n💡 Tip: You can also send 'back' to go to the previous step or 'help' for assistance."
+                    response += "\n\n💡 Commands: 'back' (previous step), 'restart' (start over), 'help' (assistance)"
                     
                     return {
                         'response': response,
@@ -355,11 +413,22 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     }
             
             except ValueError:
-                # Not a number - check if it's a common mistake
+                # Not a number - provide specific guidance
                 if message_clean.lower() in ['a', 'b', 'c', 'd']:
                     response = f"❌ You sent '{message_clean.upper()}' but we're not in a question yet.\n\n"
                     response += f"Please select a number from the options above.\n\n"
-                    response += "💡 Tip: Send 'back' to go to previous step or 'help' for assistance."
+                    response += "💡 Commands: 'back' (previous step), 'help' (assistance)"
+                    
+                    return {
+                        'response': response,
+                        'state_updates': {},
+                        'next_handler': f'{user_state.get("exam")}_handler'
+                    }
+                
+                elif message_clean.isalpha() and len(message_clean) <= 3:
+                    response = f"❌ '{message_clean}' is not a valid option.\n\n"
+                    response += f"Please enter a number to select from the options above.\n\n"
+                    response += "💡 Commands: 'back' (previous step), 'restart' (start over)"
                     
                     return {
                         'response': response,
@@ -380,11 +449,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     response = f"❌ Invalid answer format.\n\n"
                 
                 response += "Please reply with A, B, C, or D for your answer.\n\n"
-                response += "💡 Available commands:\n"
-                response += "• A, B, C, D - Answer the question\n"
-                response += "• 'stop' - Stop the test\n"
-                response += "• 'submit' - Submit current progress\n"
-                response += "• 'help' - Get help\n"
+                response += "💡 Commands: A/B/C/D (answer), 'stop' (end test), 'submit' (submit progress), 'help' (assistance)"
                 
                 return {
                     'response': response,
@@ -394,64 +459,8 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         
         return None
     
-    def _handle_question_loading_async(self, user_phone: str, user_state: Dict[str, Any], exam_type) -> Dict[str, Any]:
-        """Handle question loading asynchronously using real LLM fetching"""
-        try:
-            logger.info(f"🔄 ASYNC QUESTION LOADING START: Loading questions asynchronously for {user_phone}")
-            
-            # Get the required parameters
-            subject = user_state.get('subject')
-            practice_type = user_state.get('practice_type', 'mixed')
-            selected_option = user_state.get('selected_option', 'Mixed Practice')
-            num_questions = user_state.get('questions_needed', 25)
-            
-            if not subject:
-                logger.error(f"❌ LOADING ERROR: No subject found for {user_phone}")
-                return {
-                    'response': "Session error. Please send 'restart' to start over.",
-                    'state_updates': {'stage': 'selecting_subject'},
-                    'next_handler': f'{user_state.get("exam")}_handler'
-                }
-            
-            logger.info(f"📊 LOADING PARAMS: {user_state.get('exam')} {subject} - {practice_type} - {selected_option} - {num_questions} questions")
-            
-            # Return a loading message and trigger async loading
-            exam = user_state.get('exam', '').upper()
-            intro = f"🔍 Fetching {num_questions} real {exam} {subject} questions...\n"
-            
-            if practice_type == "topic":
-                intro += f"📚 Topic: {selected_option}\n"
-            elif practice_type == "mixed":
-                intro += f"📚 Mixed Practice (All Topics)\n"
-            elif practice_type == "weak_areas":
-                intro += f"📚 Weak Areas Focus\n"
-            else:
-                intro += f"📚 {selected_option}\n"
-            
-            intro += f"⏱️ This may take a moment as we search for authentic past questions...\n"
-            intro += f"🔍 Searching multiple years for the best questions"
-            
-            # Set up async loading - this will be handled by the async method
-            return {
-                'response': intro,
-                'state_updates': {
-                    'stage': 'async_loading',  # New intermediate stage
-                    'loading_start_time': user_state.get('current_time', 0)
-                },
-                'next_handler': f'{user_state.get("exam")}_handler',
-                'async_task': 'load_questions'  # Signal that async loading is needed
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ CRITICAL ERROR in async question loading setup: {str(e)}", exc_info=True)
-            return {
-                'response': "Sorry, there was an error setting up question loading. Please try selecting another option.",
-                'state_updates': {'stage': 'selecting_practice_option'},
-                'next_handler': f'{user_state.get("exam")}_handler'
-            }
-    
     async def handle_async_loading(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle the actual async question loading using LLM"""
+        """FIXED: Handle async question loading with proper error handling"""
         try:
             logger.info(f"🔄 ASYNC LOADING: Starting real question fetch for {user_phone}")
             
@@ -465,16 +474,28 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 return result
             else:
                 logger.error(f"❌ ASYNC LOADING ERROR: Exam type {exam} doesn't support async loading")
-                return self._generate_fallback_response(user_phone, user_state)
+                return self._generate_error_response(user_phone, user_state)
                 
         except Exception as e:
             logger.error(f"❌ ASYNC LOADING FAILED: Error in async question loading: {str(e)}", exc_info=True)
-            return self._generate_fallback_response(user_phone, user_state)
+            return self._generate_error_response(user_phone, user_state)
     
-    def _generate_fallback_response(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate fallback response when async loading fails"""
+    def _generate_error_response(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Generate simple error response without fallback questions"""
+        exam = user_state.get('exam', '').upper()
+        subject = user_state.get('subject', '')
+        
+        response = f"❌ Sorry, there was an error loading {exam} {subject} questions.\n\n"
+        response += f"This could be due to:\n"
+        response += f"• Network connectivity issues\n"
+        response += f"• Temporary server problems\n\n"
+        response += f"💡 Please try again:\n"
+        response += f"• Send 'back' to select another option\n"
+        response += f"• Send 'restart' to start over\n"
+        response += f"• Try again in a few minutes"
+        
         return {
-            'response': "Sorry, there was an error loading questions. Please try again or select another option.",
+            'response': response,
             'state_updates': {'stage': 'selecting_practice_option'},
             'next_handler': f'{user_state.get("exam")}_handler'
         }
@@ -517,7 +538,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         response = base_result.get('response', '')
         
         # Add navigation hints
-        response += f"\n\n💡 Commands: 'stop' to end test, 'submit' to submit progress"
+        response += f"\n\n💡 Commands: 'stop' (end test), 'submit' (submit progress)"
         
         # Add performance insights for longer sessions
         current_score = state_updates.get('score', user_state.get('score', 0))
@@ -527,38 +548,15 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             accuracy = current_score / questions_answered
             
             if accuracy < 0.4:  # Struggling
-                response += f"\n\n💡 Tip: Take your time to read each question carefully. These are practice questions based on {current_question.get('exam', 'exam')} standards."
+                response += f"\n\n💡 Tip: Take your time to read each question carefully."
             elif accuracy > 0.8:  # Doing well
-                response += f"\n\n🎉 Excellent! You're mastering these {current_question.get('exam', 'exam')} questions with {accuracy:.1%} accuracy!"
+                response += f"\n\n🎉 Excellent! You're mastering these questions with {accuracy:.1%} accuracy!"
         
         return {
             'response': response,
             'state_updates': state_updates,
             'next_handler': base_result.get('next_handler')
         }
-    
-    def _format_question(self, question: Dict[str, Any], question_num: int, total_questions: int) -> str:
-        """Format a question for display"""
-        question_text = question.get('question', 'No question text available')
-        options = question.get('options', {})
-        year = question.get('year', 'Unknown')
-        topic = question.get('topic')
-        exam = question.get('exam', '')
-        
-        # Format header based on available information
-        if topic and topic != "General":
-            formatted = f"Question {question_num}/{total_questions} ({exam} {year} - {topic}):\n{question_text}\n\n"
-        else:
-            formatted = f"Question {question_num}/{total_questions} ({exam} {year}):\n{question_text}\n\n"
-        
-        # Add options in order
-        for key in ['A', 'B', 'C', 'D']:
-            if key in options:
-                formatted += f"{key}. {options[key]}\n"
-        
-        formatted += "\nReply with A, B, C, or D"
-        
-        return formatted
 
 class SmartPerformanceHandler(HybridMessageHandler):
     """
@@ -590,7 +588,7 @@ class SmartPerformanceHandler(HybridMessageHandler):
 
 class SmartFAQHandler(HybridMessageHandler):
     """
-    New handler for FAQ and general help queries
+    Handler for FAQ and general help queries
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -648,37 +646,24 @@ class SmartFAQHandler(HybridMessageHandler):
         response += "• 'start' - Begin new practice session\n"
         response += "• 'restart' - Start over completely\n"
         response += "• 'back' - Go to previous step\n"
-        response += "• 'help' - Show this help\n"
-        response += "• 'faq' - Frequently asked questions\n\n"
+        response += "• 'help' - Show this help\n\n"
         
         # Stage-specific help
         if stage == 'taking_exam':
             response += "📝 **During Exam:**\n"
             response += "• A, B, C, D - Answer questions\n"
             response += "• 'stop' - Stop the test\n"
-            response += "• 'submit' - Submit current progress\n"
-            response += "• Ask any question about the exam\n\n"
+            response += "• 'submit' - Submit current progress\n\n"
         
         elif stage in ['selecting_subject', 'selecting_practice_mode', 'selecting_practice_option']:
             response += "🎯 **During Selection:**\n"
             response += "• Send number (1, 2, 3...) to select\n"
-            response += "• 'back' - Go to previous step\n"
-            response += "• Ask questions about options\n\n"
+            response += "• 'back' - Go to previous step\n\n"
         
         # Available exams
-        response += "🎓 **Available Exams:**\n"
-        response += "• JAMB (12 subjects)\n"
-        response += "• SAT (5 subjects)\n"
-        response += "• NEET (5 subjects)\n\n"
-        
-        # Practice modes
-        response += "📚 **Practice Modes:**\n"
-        response += "• Topic Practice - Focus on specific topics\n"
-        response += "• Year Practice - Complete year questions\n"
-        response += "• Mixed Practice - All topics combined\n"
-        response += "• Weak Areas - Focus on your weak points\n\n"
-        
-        response += "💡 **Tip:** You can ask me anything! I'm here to help with your exam preparation."
+        response += "🎓 **Available Exams:** JAMB, SAT, NEET\n"
+        response += "📚 **Practice Modes:** Topic, Year, Mixed, Weak Areas\n\n"
+        response += "💡 Ask me anything about exam practice!"
         
         return {
             'response': response,
@@ -712,7 +697,6 @@ class SmartFAQHandler(HybridMessageHandler):
             response += "• 'stop' - Stop test\n"
             response += "• 'submit' - Submit progress\n"
             response += "• 'help' - Get help\n"
-            response += "• Ask questions about the exam\n"
         
         else:
             response += "• 'start' - Begin new session\n"

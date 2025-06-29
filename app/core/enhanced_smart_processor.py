@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedSmartMessageProcessor:
     """
-    Enhanced message processor with navigation, FAQ, and test control capabilities
+    Enhanced message processor with strict input validation and comprehensive features
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -28,20 +28,20 @@ class EnhancedSmartMessageProcessor:
         self._setup_handlers()
     
     def _setup_handlers(self):
-        """Setup enhanced handlers with FAQ and navigation support"""
+        """Setup enhanced handlers with strict validation and FAQ support"""
         self.handlers = [
             SmartGlobalCommandHandler(self.state_manager, self.exam_registry),
-            SmartFAQHandler(self.state_manager, self.exam_registry),  # New FAQ handler
+            SmartFAQHandler(self.state_manager, self.exam_registry),  # FAQ handler for help queries
             SmartPerformanceHandler(self.state_manager, self.exam_registry),
-            SmartExamSelectionHandler(self.state_manager, self.exam_registry),
+            SmartExamSelectionHandler(self.state_manager, self.exam_registry),  # FIXED: Strict validation
             PersonalizedExamTypeHandler(self.state_manager, self.exam_registry),  # Enhanced with navigation
             SmartFallbackHandler(self.state_manager, self.exam_registry)
         ]
-        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers with FAQ support")
+        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers with strict validation")
     
     async def process_message(self, user_phone: str, message: str) -> str:
         """
-        Process a message using enhanced handlers with navigation, FAQ, and test control
+        Process a message using enhanced handlers with strict validation and comprehensive features
         """
         try:
             # Get current user state
