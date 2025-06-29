@@ -1,177 +1,181 @@
-# WhatsApp Exam Practice Bot( bolt.new hackathon)
+# WhatsApp Exam Practice Bot with LLM Agent Integration
 
-A WhatsApp chatbot that helps students practice for computer-based exams like JAMB, WAEC, etc.
+A WhatsApp chatbot that helps students practice for computer-based exams like JAMB, WAEC, etc. Now enhanced with LLM agent capabilities for intelligent conversations and explanations.
 
 ## Features
 
-- Interactive exam practice via WhatsApp
-- Multiple exam types (JAMB, etc.)
-- Multiple subjects (Biology, Chemistry, etc.)
-- Question randomization
-- Score tracking
-- Image support for questions
+- **Intelligent Conversations**: LLM-powered responses for natural interactions
+- **Hybrid Processing**: Combines structured bot logic with AI agent capabilities
+- **Interactive Exam Practice**: Multiple exam types (JAMB, SAT, etc.)
+- **Smart Explanations**: AI-generated explanations and study tips
+- **Context-Aware Responses**: Agent understands exam context and progress
+- **Web Search Integration**: Real-time information retrieval for questions
+- **Multiple Subjects**: Biology, Chemistry, Physics, Math, English, etc.
+- **Question Randomization**: Varied practice sessions
+- **Score Tracking**: Performance monitoring
+- **Image Support**: Visual questions when available
+
+## New LLM Agent Features
+
+- **Natural Language Processing**: Understands complex questions and provides detailed explanations
+- **Context-Aware Responses**: Knows your current exam, subject, and progress
+- **Smart Help System**: Provides study tips and learning strategies
+- **Web Search Integration**: Can search for current information when needed
+- **Conversational Interface**: Ask questions naturally instead of using rigid commands
 
 ## Quick Start
 
-### 1. Setup and Start Server (Recommended)
+### 1. Environment Setup
+Create a `.env` file with your API keys:
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit with your actual API keys
+GOOGLE_API_KEY=your_google_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+```
+
+### 2. Setup and Start Server
 ```bash
 # This will create venv, install dependencies, and start the server
 python start_server.py
 ```
 
-### 2. Setup ngrok (Required for WhatsApp)
+### 3. Setup ngrok (Required for WhatsApp)
 ```bash
 # In a separate terminal
 python setup_ngrok.py
 ```
 
-### 3. Configure Twilio WhatsApp
+### 4. Configure Twilio WhatsApp
 1. Go to [Twilio Console](https://console.twilio.com/)
 2. Navigate to WhatsApp Sandbox
 3. Set your webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
 4. Save the configuration
 
-### 4. Test Your Bot
+### 5. Test Your Enhanced Bot
 1. Send a WhatsApp message to your Twilio sandbox number
-2. Type "start" to begin
-3. Follow the prompts to select exam, subject, and year
-4. Answer the questions!
+2. Try natural language: "Help me practice JAMB Biology"
+3. Ask questions: "Explain photosynthesis" or "What is the powerhouse of the cell?"
+4. Use traditional commands: "start", "restart", "exit"
 
-## Manual Setup (Alternative)
+## API Keys Required
 
-### 1. Create Virtual Environment
-```bash
-python -m venv venv
+### Google AI API Key (Required)
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add it to your `.env` file as `GOOGLE_API_KEY`
 
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
+### Tavily Search API Key (Optional)
+1. Go to [Tavily](https://tavily.com/)
+2. Sign up and get your API key
+3. Add it to your `.env` file as `TAVILY_API_KEY`
+4. This enables web search for current information
+
+## How the LLM Integration Works
+
+### Hybrid Message Processing
+The bot now uses a hybrid approach:
+
+1. **Structured Logic**: For specific commands and exam navigation
+   - "start", "restart", "exit"
+   - Number selections (1, 2, 3)
+   - Answer choices (A, B, C, D)
+
+2. **LLM Agent**: For natural language interactions
+   - Questions about topics
+   - Requests for explanations
+   - Study help and tips
+   - General conversations
+
+### Context Awareness
+The LLM agent receives context about:
+- Current exam type (JAMB, SAT, etc.)
+- Subject being studied
+- Current question and progress
+- User's score and performance
+
+### Example Interactions
+
+**Traditional Structured Approach:**
+```
+User: start
+Bot: Welcome! Choose exam: 1. JAMB 2. SAT
+User: 1
+Bot: Choose subject: 1. Biology 2. Chemistry
 ```
 
-### 2. Install Dependencies
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+**New LLM-Enhanced Approach:**
 ```
+User: I want to practice biology for JAMB
+Bot: Great! I'll help you practice JAMB Biology. Let me set up some questions for you...
 
-### 3. Install and Configure ngrok
+User: What is photosynthesis?
+Bot: Photosynthesis is the process by which plants convert light energy into chemical energy (glucose). It occurs in chloroplasts and involves two main stages: light-dependent reactions and the Calvin cycle...
 
-ngrok creates a secure tunnel to your local server, making it accessible from the internet (required for WhatsApp webhooks).
-
-#### Option A: Automatic Setup (Recommended)
-```bash
-python setup_ngrok.py
-```
-
-#### Option B: Manual Setup
-1. Install ngrok:
-   ```bash
-   # On Ubuntu/Debian
-   curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-   echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-   sudo apt update && sudo apt install ngrok
-   
-   # On macOS with Homebrew
-   brew install ngrok/ngrok/ngrok
-   
-   # On Windows, download from https://ngrok.com/download
-   ```
-
-2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
-
-3. Configure ngrok:
-   ```bash
-   ngrok config add-authtoken YOUR_AUTHTOKEN_HERE
-   ```
-
-4. Start ngrok tunnel:
-   ```bash
-   ngrok http 8000
-   ```
-
-### 4. Start the Server
-
-#### Option A: Using the startup script (handles venv automatically)
-```bash
-python start_server.py
-```
-
-#### Option B: Manual startup (requires activated venv)
-```bash
-# Make sure virtual environment is activated first
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+User: Can you explain the answer to question 5?
+Bot: [Provides detailed explanation with study tips based on the specific question]
 ```
 
 ## Project Structure
 
 ```
 whatsapp-bot/
-├── venv/               # Virtual environment (auto-created)
+├── venv/                           # Virtual environment
 ├── app/
-│   ├── data/           # Exam question data
-│   │   └── jamb/       # JAMB exam questions
-│   ├── routes/         # API routes
-│   ├── services/       # Business logic
-│   └── utils/          # Helper functions
-├── main.py             # FastAPI application
-├── requirements.txt    # Python dependencies
-├── setup_ngrok.py      # ngrok setup script
-├── start_server.py     # Server startup script (with venv management)
-└── ngrok_url.txt       # Auto-generated ngrok URLs
+│   ├── agent_reflection/           # LLM agent implementation
+│   │   ├── RAG_reflection.py      # Main agent with search capabilities
+│   │   └── requirements.txt       # Agent-specific dependencies
+│   ├── core/
+│   │   ├── hybrid_message_handler.py    # Hybrid handlers with LLM
+│   │   ├── smart_message_processor.py   # Enhanced message processor
+│   │   ├── message_handler.py           # Original handlers (legacy)
+│   │   └── message_processor.py         # Original processor (legacy)
+│   ├── services/
+│   │   ├── llm_agent.py               # LLM agent service
+│   │   ├── exam_context_enhancer.py   # Context enhancement for LLM
+│   │   ├── state.py                   # State management
+│   │   └── exam_registry.py           # Exam type registry
+│   ├── data/                       # Exam question data
+│   ├── routes/                     # API routes (enhanced)
+│   └── utils/                      # Helper functions
+├── .env                           # Environment variables (create this)
+├── .env.example                   # Environment template
+├── main.py                        # FastAPI application
+├── requirements.txt               # All dependencies
+└── README.md                      # This file
 ```
 
-## Adding New Exams
+## Commands and Interactions
 
-1. Create a new folder in `app/data/` with the exam name (e.g., `waec`)
-2. Add JSON files with the format: `Subject-Year.json`
-3. Follow the existing JSON structure for questions
-
-Example JSON structure:
-```json
-{
-  "exam": "JAMB",
-  "subject": "Biology",
-  "year": "2023",
-  "questions": [
-    {
-      "id": 1,
-      "question": "Which of the following is the basic unit of life?",
-      "options": {
-        "A": "Tissue",
-        "B": "Cell",
-        "C": "Organ",
-        "D": "Organism"
-      },
-      "correct_answer": "B",
-      "explanation": "The cell is the basic structural and functional unit of all living organisms.",
-      "image_ref": "https://example.com/image.jpg"
-    }
-  ]
-}
-```
-
-## API Endpoints
-
-- `GET /` - Root endpoint
-- `GET /health` - Health check
-- `POST /webhook/whatsapp` - WhatsApp webhook
-- `GET /webhook/whatsapp` - Webhook verification
-
-## Commands
-
-Users can send these commands via WhatsApp:
+### Traditional Commands (Still Work)
 - `start` - Begin a new exam session
-- `restart` - Restart current session
+- `restart` - Restart current session  
 - `exit` - End current session
+- `help` - Get help information
+
+### New Natural Language Interactions
+- "Help me practice JAMB Biology"
+- "Explain photosynthesis"
+- "What's the answer to this question?"
+- "Give me study tips for chemistry"
+- "How do I solve this math problem?"
+- "Tell me about cell structure"
+
+### Exam Navigation
+- Number selections: "1", "2", "3" (for choosing exams/subjects)
+- Answer choices: "A", "B", "C", "D" (for answering questions)
+- Natural requests: "I want to practice biology" or "Show me chemistry questions"
 
 ## Development
 
 ### Environment Management
 The `start_server.py` script automatically:
 - Creates a virtual environment if it doesn't exist
-- Installs/updates dependencies
+- Installs/updates all dependencies (including LLM agent requirements)
 - Starts the server with auto-reload
 
 ### Manual Development Setup
@@ -181,54 +185,68 @@ source venv/bin/activate  # On macOS/Linux
 # or
 venv\Scripts\activate     # On Windows
 
-# Install development dependencies
+# Install all dependencies (includes LLM agent requirements)
 pip install -r requirements.txt
 
 # Run server with auto-reload
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+### Testing LLM Features
+1. Make sure your `.env` file has the required API keys
+2. Start the server: `python start_server.py`
+3. Test with natural language messages via WhatsApp
+4. Check logs for LLM agent activity
+
 ## Troubleshooting
 
-### Common Issues
+### LLM Agent Issues
 
-1. **Virtual environment issues**
+1. **"LLM agent may not function properly" warning**
+   - Check that `GOOGLE_API_KEY` is set in your `.env` file
+   - Verify the API key is valid and has quota
+
+2. **Agent responses are slow**
+   - This is normal for LLM processing
+   - Web search queries take additional time
+   - Consider upgrading to faster models if needed
+
+3. **Agent not responding**
+   - Check server logs for error messages
+   - Verify internet connection for API calls
+   - Ensure all dependencies are installed
+
+### Traditional Issues
+
+4. **Virtual environment issues**
    - Delete the `venv` folder and run `python start_server.py` again
    - Make sure Python 3.7+ is installed
 
-2. **ngrok tunnel not working**
+5. **ngrok tunnel not working**
    - Make sure you've added your authtoken
    - Check if port 8000 is available
    - Restart ngrok if needed
 
-3. **WhatsApp messages not received**
+6. **WhatsApp messages not received**
    - Verify webhook URL in Twilio console
    - Check ngrok tunnel is active
    - Ensure server is running on port 8000
 
-4. **Questions not loading**
-   - Check JSON file format
-   - Verify file paths in `app/data/`
-   - Check server logs for errors
+### Logs and Debugging
 
-5. **Dependencies not installing**
-   - Make sure you have internet connection
-   - Try upgrading pip: `pip install --upgrade pip`
-   - Check Python version (3.7+ required)
+The enhanced bot provides detailed logging:
+- LLM agent processing steps
+- Hybrid handler decisions (LLM vs structured logic)
+- Context enhancement information
+- Traditional bot state changes
+- API call results and errors
 
-### Logs
+## API Endpoints
 
-Server logs will show:
-- Incoming WhatsApp messages
-- User state changes
-- Errors and debugging information
-
-### File Locations
-
-- Virtual environment: `./venv/`
-- ngrok URLs: `./ngrok_url.txt` (auto-generated)
-- Server logs: Console output
-- User states: In-memory (resets on server restart)
+- `GET /` - Root endpoint
+- `GET /health` - Health check
+- `POST /webhook/whatsapp` - Enhanced WhatsApp webhook with LLM
+- `GET /webhook/whatsapp` - Webhook verification
 
 ## License
 
