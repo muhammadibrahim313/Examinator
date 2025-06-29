@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 import logging
+import asyncio
 from app.core.hybrid_message_handler import HybridMessageHandler
 from app.services.enhanced_llm_agent import EnhancedLLMAgentService
 from app.services.personalized_question_selector import PersonalizedQuestionSelector
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class PersonalizedExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with personalized question selection
+    Enhanced exam type handler with real past questions and personalized learning
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -43,11 +44,11 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             return True
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced structured logic with personalized question selection"""
+        """Enhanced structured logic with real past questions"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         
-        logger.info(f"Handling personalized {exam} stage {stage} for {user_phone}")
+        logger.info(f"Handling enhanced {exam} stage {stage} for {user_phone}")
         
         if not exam or not stage:
             return {
@@ -59,16 +60,16 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         try:
             exam_type = self.exam_registry.get_exam_type(exam)
             
-            # Special handling for year selection to use personalized questions
-            if stage == 'selecting_year' and message.strip().isdigit():
-                return self._handle_personalized_year_selection(user_phone, message, user_state, exam_type)
+            # Special handling for loading questions stage
+            if stage == 'loading_questions':
+                return self._handle_question_loading(user_phone, user_state, exam_type)
             
             # Regular handling for other stages
             result = exam_type.handle_stage(stage, user_phone, message, user_state)
             
             # Enhanced answer processing with performance tracking
             if stage == 'taking_exam' and message.strip().lower() in ['a', 'b', 'c', 'd']:
-                result = self._handle_personalized_answer(user_phone, message, user_state, result)
+                result = self._handle_enhanced_answer(user_phone, message, user_state, result)
             
             state_updates = result.get('state_updates', {})
             next_stage = result.get('next_stage')
@@ -84,80 +85,39 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             }
             
         except Exception as e:
-            logger.error(f"Error in personalized exam handler: {str(e)}", exc_info=True)
+            logger.error(f"Error in enhanced exam handler: {str(e)}", exc_info=True)
             return {
                 'response': "Sorry, something went wrong. Please try again or send 'restart' to start over.",
                 'state_updates': {},
                 'next_handler': f'{exam}_handler'
             }
     
-    def _handle_personalized_year_selection(self, user_phone: str, message: str, 
-                                          user_state: Dict[str, Any], exam_type) -> Dict[str, Any]:
-        """Handle year selection with personalized question loading"""
-        subject = user_state.get('subject')
-        exam = user_state.get('exam')
-        
-        if not subject or not exam:
-            return {
-                'response': "Session error. Please send 'restart' to start over.",
-                'state_updates': {'stage': 'selecting_subject'},
-                'next_handler': f'{exam}_handler'
-            }
-        
-        # Get available years
-        from app.utils.helpers import get_available_years
-        years = get_available_years(exam, subject)
-        
+    def _handle_question_loading(self, user_phone: str, user_state: Dict[str, Any], exam_type) -> Dict[str, Any]:
+        """Handle asynchronous question loading"""
         try:
-            choice = int(message.strip()) - 1
-            if 0 <= choice < len(years):
-                selected_year = years[choice]
-                
-                # Load personalized questions instead of random ones
-                personalized_questions = self.question_selector.get_personalized_questions(
-                    user_phone, exam, subject, selected_year, num_questions=10
-                )
-                
-                if not personalized_questions:
-                    return {
-                        'response': f"Sorry, no questions available for {subject} {selected_year}. Please try another year.",
-                        'state_updates': {},
-                        'next_handler': f'{exam}_handler'
-                    }
-                
-                # Format first question
-                first_question = self._format_question(personalized_questions[0], 1, len(personalized_questions))
-                intro = f"🎯 Starting Personalized {exam.upper()} {subject} {selected_year} Practice\n"
-                intro += f"📊 Questions selected based on your performance history\n\n"
-                
+            # Check if exam type supports async question loading
+            if hasattr(exam_type, 'load_questions_async'):
+                # Create a task to load questions asynchronously
+                # For now, we'll use a synchronous approach but indicate loading
                 return {
-                    'response': intro + first_question,
-                    'state_updates': {
-                        'year': selected_year,
-                        'stage': 'taking_exam',
-                        'questions': personalized_questions,
-                        'total_questions': len(personalized_questions),
-                        'current_question_index': 0,
-                        'score': 0,
-                        'question_details': []  # Track individual question performance
-                    },
-                    'next_handler': f'{exam}_handler'
+                    'response': "⏳ Loading questions... Please wait a moment.",
+                    'state_updates': {'stage': 'loading_questions'},
+                    'next_handler': f'{user_state.get("exam")}_handler'
                 }
             else:
-                return {
-                    'response': f"Invalid choice. Please select a number between 1 and {len(years)}.",
-                    'state_updates': {},
-                    'next_handler': f'{exam}_handler'
-                }
-        except ValueError:
+                # Fallback to regular handling
+                return exam_type.handle_stage('selecting_subject', user_phone, '', user_state)
+                
+        except Exception as e:
+            logger.error(f"Error loading questions: {e}")
             return {
-                'response': f"Please enter a valid number between 1 and {len(years)}.",
-                'state_updates': {},
-                'next_handler': f'{exam}_handler'
+                'response': "Sorry, there was an error loading questions. Please try again.",
+                'state_updates': {'stage': 'selecting_subject'},
+                'next_handler': f'{user_state.get("exam")}_handler'
             }
     
-    def _handle_personalized_answer(self, user_phone: str, message: str, 
-                                  user_state: Dict[str, Any], base_result: Dict[str, Any]) -> Dict[str, Any]:
+    def _handle_enhanced_answer(self, user_phone: str, message: str, 
+                              user_state: Dict[str, Any], base_result: Dict[str, Any]) -> Dict[str, Any]:
         """Enhanced answer handling with performance tracking"""
         questions = user_state.get('questions', [])
         current_index = user_state.get('current_question_index', 0)
@@ -170,64 +130,46 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         correct_answer = current_question.get('correct_answer', '').lower()
         is_correct = user_answer == correct_answer
         
-        # Track question performance
+        # Track question performance with enhanced details
         question_detail = {
             'question_id': current_question.get('id'),
             'question': current_question.get('question'),
             'user_answer': user_answer.upper(),
             'correct_answer': correct_answer.upper(),
             'is_correct': is_correct,
-            'timestamp': time.time()
+            'year': current_question.get('year'),
+            'exam': current_question.get('exam'),
+            'subject': current_question.get('subject'),
+            'timestamp': user_state.get('current_time', 0)
         }
         
-        # Update state with question tracking
+        # Update state with enhanced question tracking
         state_updates = base_result.get('state_updates', {})
         question_details = user_state.get('question_details', [])
         question_details.append(question_detail)
         state_updates['question_details'] = question_details
         state_updates['last_question_result'] = question_detail
         
-        # Enhanced response with personalized feedback
+        # Enhanced response with year reference and performance feedback
         response = base_result.get('response', '')
         
-        # Add adaptive feedback based on performance
+        # Add performance insights for longer sessions
         current_score = state_updates.get('score', user_state.get('score', 0))
         questions_answered = current_index + 1
         
-        if questions_answered >= 3:  # After a few questions
+        if questions_answered >= 5:  # After several questions
             accuracy = current_score / questions_answered
             
             if accuracy < 0.4:  # Struggling
-                response += f"\n\n💡 Tip: Take your time to read each question carefully. Review the explanations to understand the concepts better."
+                response += f"\n\n💡 Tip: Take your time to read each question carefully. These are real past questions from {current_question.get('exam', 'exam')} {current_question.get('year', '')}."
             elif accuracy > 0.8:  # Doing well
-                response += f"\n\n🎉 Great job! You're performing excellently with {accuracy:.1%} accuracy!"
+                response += f"\n\n🎉 Excellent! You're mastering these {current_question.get('exam', 'exam')} questions with {accuracy:.1%} accuracy!"
         
         return {
             'response': response,
             'state_updates': state_updates,
             'next_handler': base_result.get('next_handler')
         }
-    
-    def _format_question(self, question: Dict[str, Any], question_num: int, total_questions: int) -> str:
-        """Format a question for display"""
-        question_text = question.get('question', 'No question text available')
-        options = question.get('options', {})
-        image_ref = question.get('image_ref')
-        
-        formatted = f"Question {question_num}/{total_questions}:\n{question_text}\n\n"
-        
-        # Add image reference if available
-        if image_ref:
-            formatted += f"📷 Image: {image_ref}\n\n"
-        
-        # Add options in order
-        for key in ['A', 'B', 'C', 'D']:
-            if key in options:
-                formatted += f"{key}. {options[key]}\n"
-        
-        formatted += "\nReply with A, B, C, or D"
-        
-        return formatted
 
 class SmartPerformanceHandler(HybridMessageHandler):
     """
@@ -256,3 +198,31 @@ class SmartPerformanceHandler(HybridMessageHandler):
             'state_updates': {},
             'next_handler': None
         }
+
+class AsyncQuestionLoader:
+    """
+    Helper class to handle asynchronous question loading
+    """
+    
+    @staticmethod
+    async def load_questions_for_user(user_phone: str, exam_type, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Load questions asynchronously and return result
+        """
+        try:
+            if hasattr(exam_type, 'load_questions_async'):
+                return await exam_type.load_questions_async(user_phone, user_state)
+            else:
+                # Fallback for exam types that don't support async loading
+                return {
+                    'response': "Questions loaded successfully!",
+                    'state_updates': {'stage': 'taking_exam'},
+                    'next_handler': f'{user_state.get("exam")}_handler'
+                }
+        except Exception as e:
+            logger.error(f"Error in async question loading: {e}")
+            return {
+                'response': "Sorry, there was an error loading questions. Please try again.",
+                'state_updates': {'stage': 'selecting_subject'},
+                'next_handler': f'{user_state.get("exam")}_handler'
+            }

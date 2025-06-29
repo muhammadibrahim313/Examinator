@@ -1,121 +1,97 @@
-# WhatsApp Exam Practice Bot with Personalized Learning
+# Examinator - WhatsApp Exam Practice Bot with Real Past Questions
 
-A WhatsApp chatbot that helps students practice for computer-based exams like JAMB, WAEC, etc. Now enhanced with LLM agent capabilities and personalized learning that tracks performance, identifies weaknesses, and provides targeted practice.
+A comprehensive WhatsApp chatbot that helps students practice for computer-based exams using **real past questions** from JAMB, SAT, NEET, and more. Enhanced with AI-powered personalized learning that tracks performance, identifies weaknesses, and provides targeted practice.
 
 ## 🎯 Key Features
 
-### Personalized Learning System
-- **Performance Tracking**: Comprehensive analytics of user performance across subjects and topics
-- **Weakness Identification**: AI identifies areas where users struggle most
-- **Targeted Practice**: Questions are selected based on user's performance history
-- **Adaptive Difficulty**: Question difficulty adjusts based on current performance
-- **Progress Monitoring**: Track improvement over time with detailed statistics
+### Real Past Questions System
+- **Authentic Questions**: Real past questions from official exam bodies
+- **Multiple Years**: Questions sourced from multiple years (2015-2024)
+- **Year References**: Each question shows its source year
+- **Standard Format**: Proper exam format with correct number of questions
+- **Comprehensive Coverage**: All major subjects for each exam type
 
-### Intelligent Conversations
-- **LLM-Powered Responses**: Natural language processing for complex questions
-- **Context-Aware**: AI understands exam context and user progress
+### Supported Exams & Subjects
+
+#### JAMB (Joint Admissions and Matriculation Board)
+- **50 questions per subject** (standard JAMB format)
+- **Subjects**: Mathematics, English Language, Biology, Chemistry, Physics, Geography, Economics, Government, Literature in English, History, Agricultural Science, Computer Studies
+- **Years**: 2015-2024
+
+#### SAT (Scholastic Assessment Test)
+- **Variable questions per section** (standard SAT format)
+- **Subjects**: Math (58 questions), Reading and Writing (54 questions), Math Level 2, Biology, Chemistry, Physics
+- **Years**: 2018-2024
+
+#### NEET (National Eligibility cum Entrance Test)
+- **50 questions per subject** (standard NEET format)
+- **Subjects**: Physics, Chemistry, Biology, Botany, Zoology
+- **Years**: 2016-2024
+
+### Intelligent AI Features
+- **LLM-Powered Question Fetching**: Uses advanced AI to search and extract real past questions
+- **Context-Aware Responses**: AI understands exam context and user progress
 - **Smart Explanations**: Detailed explanations tailored to user's level
-- **Study Recommendations**: Personalized study tips based on performance data
+- **Performance Analytics**: Comprehensive tracking and personalized recommendations
 
-### Comprehensive Exam Support
-- **Multiple Exam Types**: JAMB, SAT, and more
-- **Various Subjects**: Biology, Chemistry, Physics, Math, English, etc.
-- **Performance Analytics**: Detailed insights into strengths and weaknesses
-- **Score Tracking**: Historical performance data with trends
+## 🚀 How It Works
 
-## 🚀 How Personalization Works
-
-### 1. **Performance Tracking**
-Every question answered is tracked:
-- Correct/incorrect responses
-- Time taken per question
-- Subject and topic performance
-- Session completion rates
-
-### 2. **Weakness Analysis**
-The system identifies:
-- Subjects with low accuracy (< 70%)
-- Topics with poor performance (< 60%)
-- Consistent problem areas
-- Learning patterns
-
-### 3. **Personalized Question Selection**
-When users start practice:
-- Questions are selected based on identified weaknesses
-- Difficulty adapts to current performance
-- Focus areas are prioritized
-- Balanced mix ensures comprehensive coverage
-
-### 4. **Adaptive Feedback**
-During practice sessions:
-- Real-time encouragement based on performance
-- Targeted study tips for wrong answers
-- Progress celebrations for improvements
-- Recommendations for next steps
-
-## 📊 Example User Journey
-
-### First-Time User
+### 1. **Real Question Fetching**
+When a user selects a subject:
 ```
-User: start
-Bot: Welcome! Choose exam: 1. JAMB 2. SAT
-User: 1
-Bot: Choose subject: 1. Biology 2. Chemistry
-User: 1
-Bot: Starting JAMB Biology practice...
-[Regular questions, performance tracked]
+User: 1 (selects Biology)
+Bot: 🔍 Fetching 50 real JAMB past questions...
+     This may take a moment as we search for authentic past questions from multiple years.
+
+[AI searches for real JAMB Biology questions from 2015-2024]
+
+Bot: 🎯 Starting JAMB Biology Practice
+     📚 50 real past questions from multiple years
+     ⏱️ Standard JAMB format
+
+     Question 1/50 (JAMB 2023):
+     Which of the following is the basic unit of life?
+     A. Tissue
+     B. Cell
+     C. Organ
+     D. Organism
+     
+     Reply with A, B, C, or D
 ```
 
-### Returning User with History
-```
-User: I want to practice biology
-Bot: Welcome back! Based on your history, you've struggled with cell biology (45% accuracy). I'll focus on those areas.
+### 2. **Enhanced Question Format**
+Each question includes:
+- **Year Reference**: Shows which year the question is from
+- **Real Source**: Authentic past exam questions
+- **Proper Format**: Standard exam format (A, B, C, D options)
+- **Detailed Explanations**: Comprehensive explanations for learning
 
-[Personalized questions targeting weaknesses]
-
-Bot: Great improvement! Your cell biology accuracy is now 70%. Let's work on genetics next.
-```
-
-### Performance Queries
-```
-User: How am I doing?
-Bot: 📊 Your Performance Summary:
-• Total Sessions: 15
-• Questions Answered: 150
-• Recent Accuracy: 78%
-• Trend: Improving
-
-🎯 Areas to Focus On:
-• Cell Biology (45% accuracy)
-• Organic Chemistry (52% accuracy)
-
-💪 Your Strengths:
-• Genetics (89% accuracy)
-• Ecology (85% accuracy)
-```
+### 3. **Standard Exam Structure**
+- **JAMB**: 50 questions per subject (matches real exam)
+- **SAT**: Variable questions per section (matches real exam)
+- **NEET**: 50 questions per subject (matches real exam)
 
 ## 🛠️ Quick Start
 
 ### 1. Environment Setup
-Create a `.env` file with your API keys:
 ```bash
-# Copy the example file
+# Copy and configure environment variables
 cp .env.example .env
 
-# Edit with your actual API keys
+# Add your API keys:
 GOOGLE_API_KEY=your_google_api_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
 TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 ```
 
-### 2. Setup and Start Server
+### 2. Install and Start
 ```bash
 # This will create venv, install dependencies, and start the server
 python start_server.py
 ```
 
-### 3. Setup ngrok (Required for WhatsApp)
+### 3. Setup ngrok for WhatsApp
 ```bash
 # In a separate terminal
 python setup_ngrok.py
@@ -124,137 +100,199 @@ python setup_ngrok.py
 ### 4. Configure Twilio WhatsApp
 1. Go to [Twilio Console](https://console.twilio.com/)
 2. Navigate to WhatsApp Sandbox
-3. Set your webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
-4. Save the configuration
+3. Set webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
 
-### 5. Test Your Enhanced Bot
-1. Send a WhatsApp message to your Twilio sandbox number
-2. Try: "Help me practice JAMB Biology"
-3. Ask: "How am I performing?" or "What are my weak areas?"
-4. Use traditional commands: "start", "restart", "exit"
+## 📊 Example User Experience
+
+### Comprehensive Subject Selection
+```
+User: start
+Bot: 🎓 Welcome to Examinator!
+
+Available exams:
+1. JAMB
+2. SAT  
+3. NEET
+
+Please reply with the number of your choice.
+
+User: 1
+Bot: ✅ You selected: JAMB
+
+Available JAMB subjects:
+1. Mathematics
+2. English Language
+3. Biology
+4. Chemistry
+5. Physics
+6. Geography
+7. Economics
+8. Government
+9. Literature in English
+10. History
+11. Agricultural Science
+12. Computer Studies
+
+Please reply with the number of your choice.
+```
+
+### Real Question Practice
+```
+User: 3 (Biology)
+Bot: 🔍 Fetching 50 real JAMB past questions...
+
+[AI fetches authentic questions]
+
+Bot: 🎯 Starting JAMB Biology Practice
+     📚 50 real past questions from multiple years
+     ⏱️ Standard JAMB format
+
+     Question 1/50 (JAMB 2023):
+     Which organelle is known as the powerhouse of the cell?
+     A. Nucleus
+     B. Ribosome  
+     C. Mitochondria
+     D. Endoplasmic reticulum
+
+     Reply with A, B, C, or D
+
+User: C
+Bot: ✅ Correct! The correct answer is C.
+
+     📅 Source: JAMB 2023
+     💡 Mitochondria are known as the powerhouse of the cell because they produce ATP through cellular respiration.
+     
+     📊 Progress: 1/1 correct (100.0%)
+
+     Question 2/50 (JAMB 2021):
+     [Next question...]
+```
+
+## 🔧 Technical Architecture
+
+### Question Fetching System
+```python
+# app/services/question_fetcher.py
+class QuestionFetcher:
+    async def fetch_questions(self, exam: str, subject: str, num_questions: int):
+        # Uses LLM agent to search for real past questions
+        # Parses and structures questions properly
+        # Returns authentic exam questions with year references
+```
+
+### Enhanced Exam Types
+```python
+# app/services/exam_types/enhanced_jamb.py
+class EnhancedJAMBExamType:
+    async def load_questions_async(self, user_phone: str, user_state: Dict):
+        # Fetches real JAMB questions using QuestionFetcher
+        # Ensures 50 questions per subject (JAMB standard)
+        # Includes year references and proper formatting
+```
+
+### Exam Structure Configuration
+```json
+// app/data/exam_structure.json
+{
+  "jamb": {
+    "subjects": {
+      "Biology": {
+        "questions_per_exam": 50,
+        "time_limit_minutes": 60,
+        "years_available": ["2015", "2016", ..., "2024"]
+      }
+    }
+  }
+}
+```
+
+## 📈 Performance Tracking
+
+### Enhanced Analytics
+- **Question-Level Tracking**: Each question answer is recorded with year and source
+- **Subject Performance**: Track performance across all subjects
+- **Year-Based Analysis**: See how you perform on questions from different years
+- **Real Exam Simulation**: Practice with authentic exam conditions
+
+### Performance Reports
+```
+User: How am I doing?
+Bot: 📊 Your Performance Summary:
+
+• Total Sessions: 15
+• Questions Answered: 750 (real past questions)
+• Recent Accuracy: 78%
+• Trend: Improving
+
+🎯 Subject Performance:
+• JAMB Biology: 85% (2023: 90%, 2022: 80%)
+• JAMB Chemistry: 72% (2023: 75%, 2022: 69%)
+
+💪 Your Strengths:
+• Cell Biology (89% accuracy)
+• Genetics (85% accuracy)
+
+📚 Recommendations:
+• Focus on Organic Chemistry questions
+• Practice more 2021-2022 JAMB Chemistry questions
+```
 
 ## 🔑 API Keys Required
 
 ### Google AI API Key (Required)
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Add it to your `.env` file as `GOOGLE_API_KEY`
+- Needed for LLM agent to search and extract real questions
+- Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-### Tavily Search API Key (Optional)
-1. Go to [Tavily](https://tavily.com/)
-2. Sign up and get your API key
-3. Add it to your `.env` file as `TAVILY_API_KEY`
-4. This enables web search for current information
+### Tavily Search API Key (Recommended)
+- Enhances question search capabilities
+- Get from [Tavily](https://tavily.com/)
 
 ## 📁 Project Structure
 
 ```
-whatsapp-bot/
-├── venv/                           # Virtual environment
+examinator/
 ├── app/
-│   ├── agent_reflection/           # LLM agent implementation
-│   ├── core/
-│   │   ├── enhanced_smart_processor.py     # Main message processor
-│   │   ├── enhanced_hybrid_handlers.py     # Personalized handlers
-│   │   └── ...
 │   ├── services/
-│   │   ├── user_analytics.py              # Performance tracking
-│   │   ├── personalized_question_selector.py  # Smart question selection
-│   │   ├── enhanced_llm_agent.py          # Enhanced AI agent
-│   │   ├── enhanced_state.py              # State with analytics
+│   │   ├── question_fetcher.py          # Real question fetching
+│   │   ├── exam_types/
+│   │   │   ├── enhanced_jamb.py         # JAMB with real questions
+│   │   │   ├── enhanced_sat.py          # SAT with real questions
+│   │   │   └── neet.py                  # NEET with real questions
 │   │   └── ...
 │   ├── data/
-│   │   ├── user_analytics/         # User performance data (auto-created)
-│   │   ├── jamb/                   # Exam questions
-│   │   └── sat/
+│   │   ├── exam_structure.json          # Exam configurations
+│   │   └── user_analytics/              # User performance data
 │   └── ...
-├── .env                           # Environment variables (create this)
-├── requirements.txt               # All dependencies
-└── README.md                      # This file
+├── requirements.txt                     # Includes supabase for future features
+└── README.md
 ```
 
-## 💬 Interaction Examples
+## 🚀 Future Enhancements
 
-### Natural Language Interactions
-```
-User: "I'm struggling with biology"
-Bot: "I can see you've had difficulty with cell biology (45% accuracy) and genetics (52% accuracy). Let me create a focused practice session for you..."
+### Database Integration (Planned)
+- **Supabase Integration**: Store questions and user data in database
+- **Question Bank**: Comprehensive database of past questions
+- **Leaderboards**: Compare performance with other users
+- **Advanced Analytics**: Detailed performance insights
 
-User: "Explain photosynthesis"
-Bot: "Photosynthesis is the process by which plants convert light energy into chemical energy... [detailed explanation] Based on your history, you might want to review the Calvin cycle specifically."
-
-User: "Give me harder questions"
-Bot: "Based on your 85% accuracy, I'll select more challenging questions to help you improve further..."
-```
-
-### Performance Tracking
-```
-User: "Show my progress"
-Bot: "📈 Progress Report:
-Week 1: 45% average
-Week 2: 62% average  
-Week 3: 78% average
-Great improvement! You've increased by 33% in 3 weeks!"
-```
-
-## 🔧 Advanced Features
-
-### Analytics API
-Access user analytics programmatically:
-```
-GET /analytics/{user_phone}
-```
-
-### Personalized Recommendations
-The system provides:
-- Study schedule suggestions
-- Topic prioritization
-- Difficulty progression
-- Performance-based encouragement
-
-### Adaptive Learning
-- Questions become harder as performance improves
-- Focus shifts to weak areas automatically
-- Learning patterns are identified and optimized
-
-## 🚀 Development
-
-### Adding New Question Categories
-1. Update `_extract_question_topic()` in `personalized_question_selector.py`
-2. Add topic keywords for better categorization
-3. Questions are automatically categorized and tracked
-
-### Customizing Analytics
-1. Modify `user_analytics.py` to track additional metrics
-2. Update recommendation algorithms
-3. Add new performance indicators
-
-## 📊 Performance Metrics Tracked
-
-- **Overall Accuracy**: Percentage of correct answers
-- **Subject Performance**: Accuracy per subject
-- **Topic Mastery**: Performance on specific topics
-- **Learning Velocity**: Rate of improvement
-- **Session Patterns**: Frequency and duration
-- **Difficulty Progression**: Advancement through levels
-- **Weakness Recovery**: Improvement in problem areas
-
-## 🎯 Future Enhancements
-
-- **Spaced Repetition**: Questions resurface based on forgetting curves
-- **Peer Comparison**: Anonymous performance comparisons
-- **Study Streaks**: Gamification elements
-- **Detailed Reports**: Comprehensive performance reports
-- **Teacher Dashboard**: Instructor view of student progress
+### Additional Features
+- **Timed Exams**: Full exam simulation with time limits
+- **Mixed Practice**: Questions from multiple years in one session
+- **Difficulty Progression**: Adaptive difficulty based on performance
+- **Study Plans**: Personalized study schedules
 
 ## 📞 Support
 
 For issues or questions:
-1. Check the troubleshooting section
-2. Review server logs for errors
-3. Ensure all API keys are properly configured
-4. Verify ngrok tunnel is active
+1. Check that all API keys are properly configured
+2. Ensure ngrok tunnel is active for WhatsApp integration
+3. Verify server is running on port 8000
+4. Review server logs for any errors
 
 ## 📄 License
 
 This project is open source and available under the MIT License.
+
+---
+
+**Examinator** - Practice with real past questions, master your exams! 🎓

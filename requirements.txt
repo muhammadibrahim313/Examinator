@@ -15,3 +15,4 @@ openevals
 wikipedia
 python-dotenv
 asyncio
+supabase
