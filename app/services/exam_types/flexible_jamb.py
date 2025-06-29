@@ -98,8 +98,14 @@ class FlexibleJAMBExamType(BaseExamType):
         if selected_subject:
             self.logger.info(f"User {user_phone} selected JAMB subject: {selected_subject}")
             
+            response = f"✅ You selected: {selected_subject}\n\n"
+            response += "🎯 How would you like to practice?\n\n"
+            response += "1. Practice by Topic\n"
+            response += "2. Practice by Year\n\n"
+            response += "Please reply with 1 or 2."
+            
             return {
-                'response': f"✅ You selected: {selected_subject}\n\n🎯 How would you like to practice?\n\n1. Practice by Topic\n   📚 Focus on specific topics like 'Cell Biology' or 'Genetics'\n   🎯 Questions from multiple years on your chosen topic\n\n2. Practice by Year\n   📅 Practice questions from a specific year (2015-2024)\n   📊 Complete year coverage with all topics\n\nPlease reply with 1 or 2.",
+                'response': response,
                 'next_stage': 'selecting_practice_mode',
                 'state_updates': {
                     'subject': selected_subject,
@@ -129,18 +135,22 @@ class FlexibleJAMBExamType(BaseExamType):
         
         if selected_mode:
             practice_mode = 'topic' if '1' in message or 'topic' in selected_mode.lower() else 'year'
-            self.logger.info(f"User {user_phone} selected practice mode: {practice_mode}")
+            self.logger.info(f"User {user_phone} selected JAMB practice mode: {practice_mode}")
             
             if practice_mode == 'topic':
                 # Get topic options
                 topic_options = self.topic_fetcher.get_practice_options('jamb', subject)
-                response = f"✅ You selected: Practice by Topic\n\n📚 Choose a topic for {subject}:\n\n"
+                response = f"✅ You selected: Practice by Topic\n\n"
+                response += f"📚 Choose a topic for {subject}:\n\n"
+                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(topic_options, f"{subject} Topics")
                 
             else:  # year mode
                 # Get year options
                 year_options = self._get_available_years('jamb', subject)
-                response = f"✅ You selected: Practice by Year\n\n📅 Choose a year for {subject}:\n\n"
+                response = f"✅ You selected: Practice by Year\n\n"
+                response += f"📅 Choose a year for {subject}:\n\n"
+                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(year_options, f"Available Years")
             
             return {
@@ -180,19 +190,17 @@ class FlexibleJAMBExamType(BaseExamType):
                 if selected_option == "Mixed Practice (All Topics)":
                     practice_type = "mixed"
                     num_questions = 50  # Full JAMB standard
-                    description = f"Mixed practice covering all {subject} topics"
                 elif selected_option == "Weak Areas Focus":
                     practice_type = "weak_areas"
                     num_questions = 30
-                    description = f"Focus on your weak areas in {subject}"
                 else:
                     # It's a specific topic
                     practice_type = "topic"
                     num_questions = 25
-                    description = f"Practice questions on {selected_option}"
                 
+                # FIXED: Return empty response to skip loading message
                 return {
-                    'response': f"✅ You selected: {selected_option}\n\n🔍 Fetching {num_questions} real JAMB past questions...\n📚 {description}\n⏱️ Questions from multiple years (2015-2024)\n\nThis may take a moment...",
+                    'response': '',  # Empty response - no loading message
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': practice_type,
@@ -217,8 +225,9 @@ class FlexibleJAMBExamType(BaseExamType):
             if selected_year:
                 num_questions = 50  # Standard JAMB questions per subject
                 
+                # FIXED: Return empty response to skip loading message
                 return {
-                    'response': f"✅ You selected: {selected_year}\n\n🔍 Fetching {num_questions} real JAMB {selected_year} questions...\n📚 Complete {subject} practice from {selected_year}\n📊 Standard JAMB format\n\nThis may take a moment...",
+                    'response': '',  # Empty response - no loading message
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': 'year',

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class FlexibleSATExamType(BaseExamType):
     """
-    Flexible SAT exam type supporting both topic-based and year-based practice
+    SAT exam type - TOPIC-BASED PRACTICE ONLY (SAT doesn't have yearly versions like JAMB/NEET)
     """
     
     def __init__(self):
@@ -17,19 +17,18 @@ class FlexibleSATExamType(BaseExamType):
         self.question_fetcher = QuestionFetcher()
     
     def get_flow_stages(self) -> List[str]:
-        return ['selecting_subject', 'selecting_practice_mode', 'selecting_practice_option', 'taking_exam']
+        # SAT only supports topic-based practice, no year selection
+        return ['selecting_subject', 'selecting_practice_option', 'taking_exam']
     
     def get_initial_stage(self) -> str:
         return 'selecting_subject'
     
     def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle SAT stages with flexible practice options"""
-        self.logger.info(f"Handling Flexible SAT stage '{stage}' for {user_phone}")
+        """Handle SAT stages - topic-based practice only"""
+        self.logger.info(f"Handling SAT stage '{stage}' for {user_phone}")
         
         if stage == 'selecting_subject':
             return self._handle_subject_selection(user_phone, message, user_state)
-        elif stage == 'selecting_practice_mode':
-            return self._handle_practice_mode_selection(user_phone, message, user_state)
         elif stage == 'selecting_practice_option':
             return self._handle_practice_option_selection(user_phone, message, user_state)
         elif stage == 'taking_exam':
@@ -45,17 +44,11 @@ class FlexibleSATExamType(BaseExamType):
         if stage == 'selecting_subject':
             subjects = self.question_fetcher.get_available_subjects('sat')
             return self.parse_choice(message, subjects) is not None
-        elif stage == 'selecting_practice_mode':
-            return self.parse_choice(message, ['Practice by Topic', 'Practice by Year']) is not None
         elif stage == 'selecting_practice_option':
-            practice_mode = user_state.get('practice_mode')
             subject = user_state.get('subject')
-            if practice_mode == 'topic' and subject:
+            if subject:
                 options = self.topic_fetcher.get_practice_options('sat', subject)
                 return self.parse_choice(message, options) is not None
-            elif practice_mode == 'year' and subject:
-                years = self._get_available_years('sat', subject)
-                return self.parse_choice(message, years) is not None
         elif stage == 'taking_exam':
             return message.strip().lower() in ['a', 'b', 'c', 'd']
         return False
@@ -63,24 +56,13 @@ class FlexibleSATExamType(BaseExamType):
     def get_available_options(self, stage: str, user_state: Dict[str, Any]) -> List[str]:
         if stage == 'selecting_subject':
             return self.question_fetcher.get_available_subjects('sat')
-        elif stage == 'selecting_practice_mode':
-            return ['Practice by Topic', 'Practice by Year']
         elif stage == 'selecting_practice_option':
-            practice_mode = user_state.get('practice_mode')
             subject = user_state.get('subject')
-            if practice_mode == 'topic' and subject:
+            if subject:
                 return self.topic_fetcher.get_practice_options('sat', subject)
-            elif practice_mode == 'year' and subject:
-                return self._get_available_years('sat', subject)
         elif stage == 'taking_exam':
             return ['A', 'B', 'C', 'D']
         return []
-    
-    def _get_available_years(self, exam: str, subject: str) -> List[str]:
-        """Get available years for an exam subject"""
-        exam_info = self.question_fetcher.get_exam_info(exam)
-        subject_info = exam_info.get('subjects', {}).get(subject, {})
-        return subject_info.get('years_available', [])
     
     def _handle_subject_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle subject selection for SAT"""
@@ -98,12 +80,20 @@ class FlexibleSATExamType(BaseExamType):
         if selected_subject:
             self.logger.info(f"User {user_phone} selected SAT subject: {selected_subject}")
             
+            # Get topic options for SAT (no year selection for SAT)
+            topic_options = self.topic_fetcher.get_practice_options('sat', selected_subject)
+            
+            response = f"✅ You selected: {selected_subject}\n\n"
+            response += f"📚 Choose your practice type for {selected_subject}:\n\n"
+            response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
+            response += self.format_options_list(topic_options, f"{selected_subject} Practice Types")
+            
             return {
-                'response': f"✅ You selected: {selected_subject}\n\n🎯 How would you like to practice?\n\n1. Practice by Topic\n   📚 Focus on specific topics like 'Algebra' or 'Reading Comprehension'\n   🎯 Questions from multiple years on your chosen topic\n\n2. Practice by Year\n   📅 Practice questions from a specific year (2018-2024)\n   📊 Complete year coverage with all topics\n\nPlease reply with 1 or 2.",
-                'next_stage': 'selecting_practice_mode',
+                'response': response,
+                'next_stage': 'selecting_practice_option',
                 'state_updates': {
                     'subject': selected_subject,
-                    'stage': 'selecting_practice_mode'
+                    'stage': 'selecting_practice_option'
                 }
             }
         else:
@@ -114,8 +104,8 @@ class FlexibleSATExamType(BaseExamType):
                 'state_updates': {}
             }
     
-    def _handle_practice_mode_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle practice mode selection (topic vs year)"""
+    def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle practice option selection for SAT (topic-based only)"""
         subject = user_state.get('subject')
         if not subject:
             return {
@@ -124,150 +114,68 @@ class FlexibleSATExamType(BaseExamType):
                 'state_updates': {'stage': 'selecting_subject'}
             }
         
-        modes = ['Practice by Topic', 'Practice by Year']
-        selected_mode = self.parse_choice(message, modes)
+        # Get topic options
+        topic_options = self.topic_fetcher.get_practice_options('sat', subject)
+        selected_option = self.parse_choice(message, topic_options)
         
-        if selected_mode:
-            practice_mode = 'topic' if '1' in message or 'topic' in selected_mode.lower() else 'year'
-            self.logger.info(f"User {user_phone} selected SAT practice mode: {practice_mode}")
+        if selected_option:
+            # Determine practice type and number of questions
+            if selected_option == "Mixed Practice (All Topics)":
+                practice_type = "mixed"
+                num_questions = self.question_fetcher.get_questions_per_exam('sat', subject)
+            elif selected_option == "Weak Areas Focus":
+                practice_type = "weak_areas"
+                num_questions = 30
+            else:
+                # It's a specific topic
+                practice_type = "topic"
+                num_questions = 25
             
-            if practice_mode == 'topic':
-                # Get topic options
-                topic_options = self.topic_fetcher.get_practice_options('sat', subject)
-                response = f"✅ You selected: Practice by Topic\n\n📚 Choose a topic for {subject}:\n\n"
-                response += self.format_options_list(topic_options, f"{subject} Topics")
-                
-            else:  # year mode
-                # Get year options
-                year_options = self._get_available_years('sat', subject)
-                response = f"✅ You selected: Practice by Year\n\n📅 Choose a year for {subject}:\n\n"
-                response += self.format_options_list(year_options, f"Available Years")
-            
+            # FIXED: Return empty response to skip loading message
             return {
-                'response': response,
-                'next_stage': 'selecting_practice_option',
+                'response': '',  # Empty response - no loading message
+                'next_stage': 'loading_questions',
                 'state_updates': {
-                    'practice_mode': practice_mode,
-                    'stage': 'selecting_practice_option'
+                    'practice_type': practice_type,
+                    'selected_option': selected_option,
+                    'questions_needed': num_questions,
+                    'stage': 'loading_questions'
                 }
             }
         else:
             return {
-                'response': "Invalid choice. Please reply with 1 for Topic or 2 for Year.\n\n🎯 How would you like to practice?\n\n1. Practice by Topic\n2. Practice by Year",
-                'next_stage': 'selecting_practice_mode',
+                'response': f"Invalid choice. Please select a number between 1 and {len(topic_options)}.\n\n" + 
+                           self.format_options_list(topic_options, f"{subject} Practice Types"),
+                'next_stage': 'selecting_practice_option',
                 'state_updates': {}
             }
     
-    def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle specific topic or year selection"""
-        subject = user_state.get('subject')
-        practice_mode = user_state.get('practice_mode')
-        
-        if not subject or not practice_mode:
-            return {
-                'response': "Session error. Please send 'restart' to start over.",
-                'next_stage': 'selecting_subject',
-                'state_updates': {'stage': 'selecting_subject'}
-            }
-        
-        if practice_mode == 'topic':
-            # Handle topic selection
-            topic_options = self.topic_fetcher.get_practice_options('sat', subject)
-            selected_option = self.parse_choice(message, topic_options)
-            
-            if selected_option:
-                # Determine practice type and number of questions
-                if selected_option == "Mixed Practice (All Topics)":
-                    practice_type = "mixed"
-                    num_questions = self.question_fetcher.get_questions_per_exam('sat', subject)
-                    description = f"Mixed practice covering all {subject} topics"
-                elif selected_option == "Weak Areas Focus":
-                    practice_type = "weak_areas"
-                    num_questions = 30
-                    description = f"Focus on your weak areas in {subject}"
-                else:
-                    # It's a specific topic
-                    practice_type = "topic"
-                    num_questions = 25
-                    description = f"Practice questions on {selected_option}"
-                
-                return {
-                    'response': f"✅ You selected: {selected_option}\n\n🔍 Fetching {num_questions} real SAT past questions...\n📚 {description}\n⏱️ Questions from multiple years (2018-2024)\n\nThis may take a moment...",
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': practice_type,
-                        'selected_option': selected_option,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
-            else:
-                return {
-                    'response': f"Invalid choice. Please select a number between 1 and {len(topic_options)}.\n\n" + 
-                               self.format_options_list(topic_options, f"{subject} Topics"),
-                    'next_stage': 'selecting_practice_option',
-                    'state_updates': {}
-                }
-        
-        else:  # year mode
-            # Handle year selection
-            year_options = self._get_available_years('sat', subject)
-            selected_year = self.parse_choice(message, year_options)
-            
-            if selected_year:
-                num_questions = self.question_fetcher.get_questions_per_exam('sat', subject)
-                
-                return {
-                    'response': f"✅ You selected: {selected_year}\n\n🔍 Fetching {num_questions} real SAT {selected_year} questions...\n📚 Complete {subject} practice from {selected_year}\n📊 Standard SAT format\n\nThis may take a moment...",
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': 'year',
-                        'selected_option': selected_year,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
-            else:
-                return {
-                    'response': f"Invalid choice. Please select a number between 1 and {len(year_options)}.\n\n" + 
-                               self.format_options_list(year_options, "Available Years"),
-                    'next_stage': 'selecting_practice_option',
-                    'state_updates': {}
-                }
-    
     async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Load questions based on practice type (topic or year)"""
+        """Load questions based on practice type (topic-based only for SAT)"""
         subject = user_state.get('subject')
-        practice_mode = user_state.get('practice_mode')
         practice_type = user_state.get('practice_type')
         selected_option = user_state.get('selected_option')
         num_questions = user_state.get('questions_needed', 25)
         
         try:
-            if practice_mode == 'topic':
-                # Topic-based practice
-                if practice_type == "topic":
-                    questions = await self.topic_fetcher.fetch_questions_by_topic(
-                        'sat', subject, selected_option, num_questions
-                    )
-                    practice_description = f"Topic: {selected_option}"
-                elif practice_type == "mixed":
-                    questions = await self.topic_fetcher.fetch_mixed_practice_questions(
-                        'sat', subject, num_questions
-                    )
-                    practice_description = "Mixed Practice (All Topics)"
-                elif practice_type == "weak_areas":
-                    questions = await self.topic_fetcher.fetch_weak_areas_questions(
-                        'sat', subject, user_phone, num_questions
-                    )
-                    practice_description = "Weak Areas Focus"
-                else:
-                    questions = []
-            
-            else:  # year mode
-                # Year-based practice
-                questions = await self.question_fetcher.fetch_questions('sat', subject, num_questions)
-                practice_description = f"SAT {selected_option} - Complete {subject}"
+            # Topic-based practice only for SAT
+            if practice_type == "topic":
+                questions = await self.topic_fetcher.fetch_questions_by_topic(
+                    'sat', subject, selected_option, num_questions
+                )
+                practice_description = f"Topic: {selected_option}"
+            elif practice_type == "mixed":
+                questions = await self.topic_fetcher.fetch_mixed_practice_questions(
+                    'sat', subject, num_questions
+                )
+                practice_description = "Mixed Practice (All Topics)"
+            elif practice_type == "weak_areas":
+                questions = await self.topic_fetcher.fetch_weak_areas_questions(
+                    'sat', subject, user_phone, num_questions
+                )
+                practice_description = "Weak Areas Focus"
+            else:
+                questions = []
             
             if not questions:
                 return {
@@ -280,12 +188,8 @@ class FlexibleSATExamType(BaseExamType):
             first_question = self._format_question(questions[0], 1, len(questions))
             intro = f"🎯 Starting SAT {subject} Practice\n"
             intro += f"📚 {practice_description}\n"
-            intro += f"📊 {len(questions)} real past questions\n"
-            
-            if practice_mode == 'topic':
-                intro += f"⏱️ Questions from multiple years (2018-2024)\n\n"
-            else:
-                intro += f"📅 Questions from {selected_option}\n\n"
+            intro += f"📊 {len(questions)} practice questions\n"
+            intro += f"⏱️ Standard SAT format\n\n"
             
             return {
                 'response': intro + first_question,
@@ -336,17 +240,12 @@ class FlexibleSATExamType(BaseExamType):
         new_score = user_state.get('score', 0) + (1 if is_correct else 0)
         next_index = current_index + 1
         
-        year = current_question.get('year', 'Unknown')
+        year = current_question.get('year', 'Practice')
         topic = current_question.get('topic', 'General')
         explanation = current_question.get('explanation', 'No explanation available.')
-        practice_mode = user_state.get('practice_mode', 'topic')
         
         response = f"{'✅ Correct!' if is_correct else '❌ Wrong!'} Answer: {correct_answer.upper()}\n\n"
-        response += f"📅 Source: SAT {year}\n"
-        
-        if practice_mode == 'topic':
-            response += f"📚 Topic: {topic}\n"
-        
+        response += f"📚 Topic: {topic}\n"
         response += f"💡 {explanation}\n\n"
         
         if next_index >= len(questions):
@@ -356,7 +255,7 @@ class FlexibleSATExamType(BaseExamType):
             response += f"🎉 SAT {user_state.get('subject')} Complete!\n"
             response += f"📈 Score: {new_score}/{len(questions)} ({percentage:.1f}%)\n"
             response += f"📚 {practice_description}\n\n"
-            response += "Send 'start' to practice another topic, year, or subject."
+            response += "Send 'start' to practice another topic or subject."
             
             return {
                 'response': response,
@@ -380,13 +279,12 @@ class FlexibleSATExamType(BaseExamType):
         """Format a question with appropriate context"""
         question_text = question.get('question', 'No question text available')
         options = question.get('options', {})
-        year = question.get('year', 'Unknown')
         topic = question.get('topic')
         
-        if topic:
-            formatted = f"Question {question_num}/{total_questions} (SAT {year} - {topic}):\n{question_text}\n\n"
+        if topic and topic != "General":
+            formatted = f"Question {question_num}/{total_questions} (SAT - {topic}):\n{question_text}\n\n"
         else:
-            formatted = f"Question {question_num}/{total_questions} (SAT {year}):\n{question_text}\n\n"
+            formatted = f"Question {question_num}/{total_questions} (SAT):\n{question_text}\n\n"
         
         for key in ['A', 'B', 'C', 'D']:
             if key in options:

@@ -66,36 +66,33 @@
   },
   "sat": {
     "name": "Scholastic Assessment Test",
+    "practice_modes": ["topic_only"],
+    "note": "SAT uses topic-based practice only, not yearly versions",
     "subjects": {
       "Math": {
         "questions_per_exam": 58,
         "time_limit_minutes": 80,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
+        "practice_types": ["topic", "mixed", "weak_areas"]
       },
       "Reading and Writing": {
         "questions_per_exam": 54,
         "time_limit_minutes": 64,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
-      },
-      "Math Level 2": {
-        "questions_per_exam": 50,
-        "time_limit_minutes": 60,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
+        "practice_types": ["topic", "mixed", "weak_areas"]
       },
       "Biology": {
         "questions_per_exam": 80,
         "time_limit_minutes": 60,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
+        "practice_types": ["topic", "mixed", "weak_areas"]
       },
       "Chemistry": {
         "questions_per_exam": 85,
         "time_limit_minutes": 60,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
+        "practice_types": ["topic", "mixed", "weak_areas"]
       },
       "Physics": {
         "questions_per_exam": 75,
         "time_limit_minutes": 60,
-        "years_available": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"]
+        "practice_types": ["topic", "mixed", "weak_areas"]
       }
     }
   },

@@ -74,6 +74,21 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             state_updates = result.get('state_updates', {})
             next_stage = result.get('next_stage')
             
+            # FIXED: Check for loading_questions transition and handle immediately
+            if next_stage == 'loading_questions':
+                # Apply state updates first
+                if state_updates:
+                    self.state_manager.update_user_state(user_phone, state_updates)
+                
+                # Get updated state
+                updated_user_state = self.state_manager.get_user_state(user_phone)
+                
+                # Immediately handle question loading
+                loading_result = self._handle_question_loading_sync(user_phone, updated_user_state, exam_type)
+                
+                # Return the loading result directly (which should contain the first question)
+                return loading_result
+            
             if next_stage and next_stage != stage:
                 state_updates['stage'] = next_stage
                 logger.info(f"Stage transition for {user_phone}: {stage} -> {next_stage}")
