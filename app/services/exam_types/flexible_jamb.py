@@ -180,19 +180,17 @@ class FlexibleJAMBExamType(BaseExamType):
                 if selected_option == "Mixed Practice (All Topics)":
                     practice_type = "mixed"
                     num_questions = 50  # Full JAMB standard
-                    description = f"Mixed practice covering all {subject} topics"
                 elif selected_option == "Weak Areas Focus":
                     practice_type = "weak_areas"
                     num_questions = 30
-                    description = f"Focus on your weak areas in {subject}"
                 else:
                     # It's a specific topic
                     practice_type = "topic"
                     num_questions = 25
-                    description = f"Practice questions on {selected_option}"
                 
+                # FIXED: Return empty response to skip loading message
                 return {
-                    'response': f"✅ You selected: {selected_option}\n\n🔍 Fetching {num_questions} real JAMB past questions...\n📚 {description}\n⏱️ Questions from multiple years (2015-2024)\n\nThis may take a moment...",
+                    'response': '',  # Empty response - no loading message
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': practice_type,
@@ -217,8 +215,9 @@ class FlexibleJAMBExamType(BaseExamType):
             if selected_year:
                 num_questions = 50  # Standard JAMB questions per subject
                 
+                # FIXED: Return empty response to skip loading message
                 return {
-                    'response': f"✅ You selected: {selected_year}\n\n🔍 Fetching {num_questions} real JAMB {selected_year} questions...\n📚 Complete {subject} practice from {selected_year}\n📊 Standard JAMB format\n\nThis may take a moment...",
+                    'response': '',  # Empty response - no loading message
                     'next_stage': 'loading_questions',
                     'state_updates': {
                         'practice_type': 'year',
