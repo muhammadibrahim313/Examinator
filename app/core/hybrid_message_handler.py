@@ -247,40 +247,19 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
 
 class SmartExamSelectionHandler(HybridMessageHandler):
     """
-    Enhanced exam selection handler with LLM capabilities
+    Enhanced exam selection handler with STRICT input validation
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
         return user_state.get('stage') == 'selecting_exam'
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """FIXED: Use structured logic for number selections, LLM for other queries"""
-        message_clean = message.strip()
-        
-        # Check if it's a valid number selection
-        try:
-            choice = int(message_clean)
-            exams = self.exam_registry.get_available_exams()
-            if 1 <= choice <= len(exams):
-                logger.info(f"📊 EXAM SELECTION: Valid number choice {choice} detected - using structured logic")
-                return False  # Use structured logic for valid numbers
-        except ValueError:
-            pass
-        
-        # Check if it's an invalid number
-        try:
-            int(message_clean)
-            logger.info(f"📊 EXAM SELECTION: Invalid number detected - using structured logic for error handling")
-            return False  # Use structured logic to handle invalid numbers
-        except ValueError:
-            pass
-        
-        # For non-numeric input, use LLM
-        logger.info(f"📊 EXAM SELECTION: Non-numeric input '{message}' - using LLM agent")
-        return True
+        """FIXED: Use structured logic for ALL inputs in exam selection - no LLM"""
+        # Always use structured logic for exam selection to ensure proper validation
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle exam selection with structured logic"""
+        """Handle exam selection with STRICT validation - no invalid inputs allowed"""
         logger.info(f"Processing exam selection for {user_phone}: {message}")
         
         exams = self.exam_registry.get_available_exams()
@@ -291,11 +270,23 @@ class SmartExamSelectionHandler(HybridMessageHandler):
                 'next_handler': None
             }
         
+        message_clean = message.strip()
+        
+        # Check for special commands first
+        if message_clean.lower() in ['help', 'back', 'restart']:
+            if message_clean.lower() == 'help':
+                return self._get_exam_selection_help(exams)
+            elif message_clean.lower() == 'restart':
+                return self._handle_restart(exams)
+            elif message_clean.lower() == 'back':
+                return self._handle_back_from_exam_selection()
+        
+        # Strict number validation
         try:
-            choice = int(message.strip()) - 1
+            choice = int(message_clean)
             
-            if 0 <= choice < len(exams):
-                selected_exam = exams[choice]
+            if 1 <= choice <= len(exams):
+                selected_exam = exams[choice - 1]
                 logger.info(f"Selected exam: {selected_exam}")
                 
                 try:
@@ -331,22 +322,106 @@ class SmartExamSelectionHandler(HybridMessageHandler):
                     }
             else:
                 # Invalid number range
-                exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
-                return {
-                    'response': f"❌ Invalid choice. Please select a number between 1 and {len(exams)}.\n\n🎓 Available exams:\n{exam_list}\n\nPlease reply with the number of your choice.",
-                    'state_updates': {},
-                    'next_handler': 'exam_selection'
-                }
+                return self._get_invalid_number_response(choice, len(exams), exams)
                 
         except ValueError:
             # Not a number at all
-            logger.warning(f"Invalid input for exam selection: '{message}'")
-            exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
-            return {
-                'response': f"❌ Please enter a valid number between 1 and {len(exams)}.\n\n🎓 Available exams:\n{exam_list}\n\nPlease reply with the number of your choice.",
-                'state_updates': {},
-                'next_handler': 'exam_selection'
-            }
+            return self._get_invalid_input_response(message_clean, exams)
+    
+    def _get_invalid_number_response(self, choice: int, max_choice: int, exams: list) -> Dict[str, Any]:
+        """Get response for invalid number choice"""
+        exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
+        
+        response = f"❌ Invalid choice: {choice}\n\n"
+        response += f"Please select a number between 1 and {max_choice}.\n\n"
+        response += f"🎓 Available exams:\n{exam_list}\n\n"
+        response += f"Please reply with the number of your choice.\n\n"
+        response += f"💡 Available commands: 'help', 'restart'"
+        
+        return {
+            'response': response,
+            'state_updates': {},
+            'next_handler': 'exam_selection'
+        }
+    
+    def _get_invalid_input_response(self, input_text: str, exams: list) -> Dict[str, Any]:
+        """Get response for completely invalid input"""
+        exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
+        
+        # Provide specific guidance based on the type of invalid input
+        if input_text.lower() in ['a', 'b', 'c', 'd']:
+            response = f"❌ You sent '{input_text.upper()}' but we're selecting an exam, not answering a question.\n\n"
+        elif input_text.isalpha() and len(input_text) == 1:
+            response = f"❌ You sent '{input_text}' but please enter a number.\n\n"
+        elif len(input_text) > 10:
+            response = f"❌ That's too long. Please enter a simple number.\n\n"
+        else:
+            response = f"❌ '{input_text}' is not a valid choice.\n\n"
+        
+        response += f"Please enter a number between 1 and {len(exams)} to select an exam.\n\n"
+        response += f"🎓 Available exams:\n{exam_list}\n\n"
+        response += f"Examples: Send '1' for JAMB, '2' for SAT, '3' for NEET\n\n"
+        response += f"💡 Available commands: 'help', 'restart'"
+        
+        return {
+            'response': response,
+            'state_updates': {},
+            'next_handler': 'exam_selection'
+        }
+    
+    def _get_exam_selection_help(self, exams: list) -> Dict[str, Any]:
+        """Get help response for exam selection"""
+        exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
+        
+        response = f"🆘 **Exam Selection Help**\n\n"
+        response += f"🎓 Available exams:\n{exam_list}\n\n"
+        response += f"📝 **How to select:**\n"
+        response += f"• Send '1' to select JAMB\n"
+        response += f"• Send '2' to select SAT\n"
+        response += f"• Send '3' to select NEET\n\n"
+        response += f"🔧 **Available commands:**\n"
+        response += f"• 'help' - Show this help\n"
+        response += f"• 'restart' - Start over\n\n"
+        response += f"💡 Just send the number of your choice!"
+        
+        return {
+            'response': response,
+            'state_updates': {},
+            'next_handler': 'exam_selection'
+        }
+    
+    def _handle_restart(self, exams: list) -> Dict[str, Any]:
+        """Handle restart command"""
+        exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
+        response = (f"🔄 Starting over...\n\n"
+                   f"🎓 Welcome to the Exam Practice Bot!\n\n"
+                   f"Available exams:\n{exam_list}\n\n"
+                   f"Please reply with the number of your choice.")
+        
+        return {
+            'response': response,
+            'state_updates': {
+                'stage': 'selecting_exam',
+                'exam': None,
+                'subject': None,
+                'year': None,
+                'section': None,
+                'difficulty': None,
+                'current_question_index': 0,
+                'score': 0,
+                'total_questions': 0,
+                'questions': []
+            },
+            'next_handler': 'exam_selection'
+        }
+    
+    def _handle_back_from_exam_selection(self) -> Dict[str, Any]:
+        """Handle back command from exam selection"""
+        return {
+            'response': "🔙 You're already at the beginning. Send 'restart' to start over or select an exam from the list above.",
+            'state_updates': {},
+            'next_handler': 'exam_selection'
+        }
 
 class SmartExamTypeHandler(HybridMessageHandler):
     """
