@@ -2,4 +2,5 @@ node_modules
 .env
 __pycache__
 venv
-ngrok_url.txt.env
+ngrok_url.txt
+
