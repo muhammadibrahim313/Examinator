@@ -18,6 +18,9 @@ class SystemCommands:
     Centralized system commands dictionary with validation
     """
     
+    # Make CommandType accessible as class attribute
+    CommandType = CommandType
+    
     # Core system commands that should NEVER go to LLM
     SYSTEM_COMMANDS: Dict[str, CommandType] = {
         # Navigation commands
