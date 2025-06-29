@@ -1,54 +1,100 @@
-# Examinator - Topic-Based WhatsApp Exam Practice Bot
+# Examinator - Flexible WhatsApp Exam Practice Bot
 
-A revolutionary WhatsApp chatbot that helps students practice for computer-based exams using **real past questions** organized by **topics**. Students can practice specific topics or get mixed questions from multiple years without having to select specific years.
+A revolutionary WhatsApp chatbot that helps students practice for computer-based exams using **real past questions**. Students can choose to practice by **topics** OR **years** with complete flexibility across all supported exams.
 
 ## 🎯 Key Features
 
-### Topic-Based Practice System
+### Dual Practice System - Topics OR Years
 - **Practice by Topic**: Choose specific topics like "Cell Biology" or "Algebra"
+- **Practice by Year**: Select specific years (2015-2024) for complete coverage
 - **Mixed Practice**: Get questions from all topics in a subject
 - **Weak Areas Focus**: AI identifies and focuses on your weak areas
-- **Multi-Year Questions**: Questions automatically sourced from multiple years (2015-2024)
-- **No Year Selection Required**: Students focus on topics, not years
+- **Multi-Year Questions**: Topic practice automatically sources from multiple years
 
 ### Real Past Questions
 - **Authentic Questions**: Real past questions from official exam bodies
-- **Multiple Years**: Questions automatically sourced from 2015-2024
-- **Topic References**: Each question shows its topic and source year
+- **Multiple Years**: Questions automatically sourced from 2015-2024 (JAMB), 2018-2024 (SAT), 2016-2024 (NEET)
+- **Topic & Year References**: Each question shows its topic and source year
 - **Standard Format**: Proper exam format with correct number of questions
 
 ### Supported Exams & Subjects
 
 #### JAMB (Joint Admissions and Matriculation Board)
-**All 12 subjects with topic-based practice:**
-- **Mathematics**: Algebra, Geometry, Trigonometry, Calculus, Statistics, etc.
-- **English Language**: Comprehension, Grammar, Vocabulary, Writing Skills, etc.
-- **Biology**: Cell Biology, Genetics, Evolution, Ecology, Physiology, etc.
-- **Chemistry**: Atomic Structure, Chemical Bonding, Organic Chemistry, etc.
-- **Physics**: Mechanics, Electricity, Waves, Thermodynamics, etc.
-- **Geography**: Physical Geography, Human Geography, Map Reading, etc.
-- **Economics**: Basic Concepts, Market Structure, National Income, etc.
-- **Government**: Political Theory, Constitutional Development, etc.
-- **Literature**: Poetry, Prose, Drama, Literary Devices, etc.
-- **History**: Nigerian History, African History, World History, etc.
-- **Agricultural Science**: Crop Production, Animal Production, Soil Science, etc.
-- **Computer Studies**: Fundamentals, Programming, Networks, etc.
+**All 12 subjects with flexible practice:**
+- **Mathematics**: 50 questions per exam
+- **English Language**: 50 questions per exam
+- **Biology**: 50 questions per exam
+- **Chemistry**: 50 questions per exam
+- **Physics**: 50 questions per exam
+- **Geography**: 50 questions per exam
+- **Economics**: 50 questions per exam
+- **Government**: 50 questions per exam
+- **Literature in English**: 50 questions per exam
+- **History**: 50 questions per exam
+- **Agricultural Science**: 50 questions per exam
+- **Computer Studies**: 50 questions per exam
 
-#### SAT & NEET
-- Similar topic-based structure for all subjects
+#### SAT (Scholastic Assessment Test)
+- **Math**: 58 questions per exam
+- **Reading and Writing**: 54 questions per exam
+- **Biology**: 80 questions per exam
+- **Chemistry**: 85 questions per exam
+- **Physics**: 75 questions per exam
+- **Math Level 2**: 50 questions per exam
 
-## 🚀 How Topic-Based Practice Works
+#### NEET (National Eligibility cum Entrance Test)
+- **Physics**: 50 questions per exam
+- **Chemistry**: 50 questions per exam
+- **Biology**: 50 questions per exam
+- **Botany**: 25 questions per exam
+- **Zoology**: 25 questions per exam
 
-### 1. **Choose Subject, Then Practice Type**
+## 🚀 How the Flexible Practice System Works
+
+### 1. **Choose Exam and Subject**
 ```
 User: start
-Bot: Choose exam: 1. JAMB 2. SAT 3. NEET
+Bot: 🎓 Welcome to Examinator!
+
+Available exams:
+1. JAMB
+2. SAT
+3. NEET
 
 User: 1
-Bot: Choose subject: 1. Mathematics 2. Biology 3. Chemistry...
+Bot: ✅ You selected: JAMB
 
-User: 2 (Biology)
-Bot: 📚 Choose your practice type:
+Available JAMB subjects:
+1. Mathematics
+2. English Language
+3. Biology
+[... all 12 subjects]
+
+User: 3
+Bot: ✅ You selected: Biology
+```
+
+### 2. **Choose Practice Mode - Topics OR Years**
+```
+Bot: 🎯 How would you like to practice?
+
+1. Practice by Topic
+   📚 Focus on specific topics like 'Cell Biology' or 'Genetics'
+   🎯 Questions from multiple years on your chosen topic
+
+2. Practice by Year
+   📅 Practice questions from a specific year (2015-2024)
+   📊 Complete year coverage with all topics
+
+Please reply with 1 or 2.
+```
+
+### 3. **Topic-Based Practice**
+```
+User: 1 (Practice by Topic)
+Bot: ✅ You selected: Practice by Topic
+
+📚 Choose a topic for Biology:
 
 1. Cell Biology and Organization
 2. Genetics and Heredity
@@ -63,23 +109,18 @@ Bot: 📚 Choose your practice type:
 11. Mixed Practice (All Topics)
 12. Weak Areas Focus
 
-Please reply with the number of your choice.
-```
-
-### 2. **Topic-Specific Practice**
-```
 User: 1 (Cell Biology)
 Bot: ✅ You selected: Cell Biology and Organization
 
-🔍 Fetching 20 real JAMB past questions...
+🔍 Fetching 25 real JAMB past questions...
 📚 Practice questions on Cell Biology and Organization
 ⏱️ Questions from multiple years (2015-2024)
 
 🎯 Starting JAMB Biology Practice
 📚 Topic: Cell Biology and Organization
-📊 20 real past questions from multiple years
+📊 25 real past questions from multiple years
 
-Question 1/20 (JAMB 2023 - Cell Biology):
+Question 1/25 (JAMB 2023 - Cell Biology):
 Which organelle is known as the powerhouse of the cell?
 A. Nucleus
 B. Ribosome
@@ -89,43 +130,66 @@ D. Endoplasmic reticulum
 Reply with A, B, C, or D
 ```
 
-### 3. **Mixed Practice**
+### 4. **Year-Based Practice**
+```
+User: 2 (Practice by Year)
+Bot: ✅ You selected: Practice by Year
+
+📅 Choose a year for Biology:
+
+1. 2024
+2. 2023
+3. 2022
+4. 2021
+5. 2020
+6. 2019
+7. 2018
+8. 2017
+9. 2016
+10. 2015
+
+User: 2 (2023)
+Bot: ✅ You selected: 2023
+
+🔍 Fetching 50 real JAMB 2023 questions...
+📚 Complete Biology practice from 2023
+📊 Standard JAMB format
+
+🎯 Starting JAMB Biology Practice
+📚 JAMB 2023 - Complete Biology
+📊 50 real past questions
+📅 Questions from 2023
+
+Question 1/50 (JAMB 2023):
+[Question from 2023 covering any Biology topic]
+```
+
+### 5. **Mixed Practice**
 ```
 User: 11 (Mixed Practice)
 Bot: ✅ You selected: Mixed Practice (All Topics)
 
-🔍 Fetching 30 real JAMB past questions...
+🔍 Fetching 50 real JAMB past questions...
 📚 Mixed practice covering all Biology topics
-⏱️ Questions from multiple years (2015-2024)
+⏱️ Questions from multiple years
 
 [Questions from various topics: Cell Biology, Genetics, Ecology, etc.]
 ```
 
-### 4. **Weak Areas Focus**
-```
-User: 12 (Weak Areas Focus)
-Bot: ✅ You selected: Weak Areas Focus
-
-🔍 Fetching 25 real JAMB past questions...
-📚 Focus on your weak areas in Biology
-⏱️ Questions from multiple years
-
-[AI selects questions from topics where user has struggled]
-```
-
-## 🎯 Benefits of Topic-Based Practice
+## 🎯 Benefits of Flexible Practice
 
 ### For Students
+- **Complete Freedom**: Choose topics OR years based on your study needs
 - **Targeted Learning**: Focus on specific topics you need to improve
-- **Flexible Practice**: No need to choose specific years
-- **Comprehensive Coverage**: Questions from multiple years ensure variety
+- **Comprehensive Coverage**: Practice complete years for exam simulation
 - **Weakness Identification**: AI tracks which topics you struggle with
-- **Efficient Study**: Practice exactly what you need
+- **Efficient Study**: Practice exactly what you need, when you need it
 
 ### For Exam Preparation
 - **Real Questions**: Authentic past questions maintain exam authenticity
-- **Topic Mastery**: Master one topic at a time or practice everything
-- **Performance Tracking**: See your progress in each topic
+- **Topic Mastery**: Master one topic at a time
+- **Year Familiarity**: Practice complete years to understand exam patterns
+- **Performance Tracking**: See your progress in each topic and year
 - **Adaptive Learning**: System focuses on your weak areas
 
 ## 🛠️ Quick Start
@@ -149,145 +213,118 @@ python setup_ngrok.py
 ### 4. Configure Twilio WhatsApp
 Set webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
 
-## 📊 Example User Experience
+## 📊 Example User Experiences
 
-### Topic Selection Flow
+### Topic-Focused Student
 ```
-User: start
-Bot: 🎓 Welcome to Examinator!
-
-Available exams:
-1. JAMB
-2. SAT
-3. NEET
-
-User: 1
-Bot: ✅ You selected: JAMB
-
-Available JAMB subjects:
-1. Mathematics
-2. English Language
-3. Biology
-[... all 12 subjects]
-
-User: 3
-Bot: ✅ You selected: Biology
-
-📚 Choose your practice type:
-1. Cell Biology and Organization
-2. Genetics and Heredity
-3. Evolution and Ecology
-[... all Biology topics]
-11. Mixed Practice (All Topics)
-12. Weak Areas Focus
+User: "I'm weak in genetics, help me practice"
+Bot: [Guides to JAMB Biology → Practice by Topic → Genetics]
+Result: 25 genetics questions from multiple years (2015-2024)
 ```
 
-### Practice Session
+### Year-Specific Student
 ```
-User: 2 (Genetics)
-Bot: 🎯 Starting JAMB Biology Practice
-     📚 Topic: Genetics and Heredity
-     📊 20 real past questions from multiple years
+User: "I want to practice JAMB 2023 biology"
+Bot: [Guides to JAMB Biology → Practice by Year → 2023]
+Result: 50 complete JAMB 2023 biology questions
+```
 
-     Question 1/20 (JAMB 2022 - Genetics):
-     What is the basic unit of heredity?
-     A. Chromosome
-     B. Gene
-     C. DNA
-     D. RNA
+### Comprehensive Student
+```
+User: "Give me mixed biology practice"
+Bot: [Guides to JAMB Biology → Practice by Topic → Mixed Practice]
+Result: 50 questions covering all biology topics from multiple years
+```
 
-User: B
-Bot: ✅ Correct! The correct answer is B.
-
-     📅 Source: JAMB 2022
-     📚 Topic: Genetics and Heredity
-     💡 A gene is the basic unit of heredity that carries genetic information...
-     
-     📊 Progress: 1/1 correct (100.0%)
-
-     Question 2/20 (JAMB 2019 - Genetics):
-     [Next genetics question...]
+### Performance-Focused Student
+```
+User: "Focus on my weak areas"
+Bot: [Guides to JAMB Biology → Practice by Topic → Weak Areas Focus]
+Result: 30 questions from topics where user has struggled
 ```
 
 ## 🔧 Technical Architecture
 
-### Topic-Based Question Fetching
+### Flexible Question Fetching
 ```python
-# app/services/topic_based_question_fetcher.py
-class TopicBasedQuestionFetcher:
-    async def fetch_questions_by_topic(self, exam: str, subject: str, topic: str, num_questions: int):
-        # Fetches real questions for specific topic from multiple years
-        # Uses AI to search and extract authentic past questions
-        # Returns structured questions with topic and year references
+# Supports both topic and year-based fetching
+class FlexibleJAMBExamType:
+    async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]):
+        if practice_mode == 'topic':
+            # Topic-based practice from multiple years
+            questions = await self.topic_fetcher.fetch_questions_by_topic(
+                'jamb', subject, selected_topic, num_questions
+            )
+        else:  # year mode
+            # Year-based practice with all topics
+            questions = await self.question_fetcher.fetch_questions(
+                'jamb', subject, num_questions
+            )
 ```
 
-### Enhanced Exam Flow
-```python
-# app/services/exam_types/topic_based_jamb.py
-class TopicBasedJAMBExamType:
-    def get_flow_stages(self) -> List[str]:
-        return ['selecting_subject', 'selecting_practice_type', 'taking_exam']
-    
-    # Handles topic selection and question fetching
-```
+### Universal UX Pattern
+All exams (JAMB, SAT, NEET) follow the same user experience:
+1. **Select Exam** → 2. **Select Subject** → 3. **Choose Practice Mode** → 4. **Select Option** → 5. **Practice**
 
-### Topic Structure
-```json
-// app/data/topic_structure.json
-{
-  "jamb": {
-    "Biology": {
-      "topics": [
-        "Cell Biology and Organization",
-        "Genetics and Heredity",
-        "Evolution and Ecology",
-        // ... all Biology topics
-      ]
-    }
-  }
-}
-```
-
-## 📈 Performance Tracking
-
-### Enhanced Analytics
+### Enhanced Performance Tracking
 - **Topic-Level Performance**: Track performance in each topic
-- **Multi-Year Analysis**: See how you perform on questions from different years
+- **Year-Level Analysis**: See how you perform on questions from different years
+- **Cross-Year Comparison**: Compare your performance across years
 - **Weakness Identification**: AI identifies topics you struggle with
 - **Progress Monitoring**: Track improvement over time
 
-### Performance Reports
+## 📈 Performance Reports
+
+### Topic Performance
 ```
-User: How am I doing?
-Bot: 📊 Your Performance Summary:
+User: How am I doing in biology?
+Bot: 📊 Your Biology Performance:
 
 🎯 Topic Performance:
-• Cell Biology: 85% (20 questions answered)
-• Genetics: 72% (15 questions answered)
-• Ecology: 90% (10 questions answered)
+• Cell Biology: 85% (25 questions from 2020-2024)
+• Genetics: 72% (20 questions from 2018-2023)
+• Ecology: 90% (15 questions from 2019-2024)
 
-📚 Recent Practice:
-• JAMB Biology - Genetics: 80% (from multiple years)
-• JAMB Chemistry - Bonding: 65% (needs improvement)
+📅 Year Performance:
+• JAMB 2023: 78% (50 questions)
+• JAMB 2022: 82% (30 questions)
 
 💪 Recommendations:
 • Focus more on Genetics concepts
-• Practice Chemical Bonding questions
+• Practice more 2021-2022 questions
 • Review Cell Biology fundamentals
 ```
 
-## 🚀 Future Enhancements
+## 🚀 Advanced Features
 
-### Advanced Topic Features
-- **Subtopic Breakdown**: Further divide topics into subtopics
+### Smart Question Selection
+- **Topic Questions**: AI searches for questions specifically about chosen topics
+- **Year Questions**: Complete question sets from specific years
+- **Mixed Questions**: Balanced selection across all topics
+- **Weak Area Questions**: Targeted questions for improvement areas
+
+### Adaptive Feedback
+- **Topic Context**: Shows which topic each question belongs to
+- **Year Context**: Shows which year each question is from
+- **Performance Insights**: Real-time feedback on progress
+- **Study Recommendations**: Personalized suggestions based on performance
+
+### Cross-Exam Consistency
+- **Universal Flow**: Same user experience across JAMB, SAT, and NEET
+- **Consistent Options**: Topics and years available for all exams
+- **Standardized Feedback**: Same quality feedback across all exams
+
+## 🎯 Future Enhancements
+
+### Advanced Practice Modes
 - **Difficulty Levels**: Easy, Medium, Hard questions within topics
-- **Topic Dependencies**: Understand prerequisite topics
-- **Mastery Tracking**: Track when you've mastered a topic
+- **Time-Based Practice**: Timed sessions for exam simulation
+- **Custom Practice**: Mix topics and years in custom combinations
 
-### Smart Recommendations
-- **Study Path**: AI suggests optimal topic sequence
-- **Time Allocation**: Recommend time to spend on each topic
-- **Review Schedule**: Spaced repetition for topic review
+### Enhanced Analytics
+- **Topic Mastery Tracking**: Track when you've mastered each topic
+- **Year Pattern Analysis**: Understand how exam patterns change over years
+- **Predictive Recommendations**: AI predicts which topics to study next
 
 ## 📞 Support
 
@@ -303,4 +340,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-**Examinator** - Master topics, not years! Practice with real past questions organized by topics. 🎓📚
+**Examinator** - Practice your way! Choose topics OR years with real past questions. 🎓📚

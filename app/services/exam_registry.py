@@ -1,15 +1,15 @@
 from typing import Dict, Type
 from app.services.exam_types.base import BaseExamType
-from app.services.exam_types.topic_based_jamb import TopicBasedJAMBExamType
-from app.services.exam_types.enhanced_sat import EnhancedSATExamType
-from app.services.exam_types.neet import NEETExamType
+from app.services.exam_types.flexible_jamb import FlexibleJAMBExamType
+from app.services.exam_types.flexible_sat import FlexibleSATExamType
+from app.services.exam_types.flexible_neet import FlexibleNEETExamType
 import logging
 
 logger = logging.getLogger(__name__)
 
 class ExamRegistry:
     """
-    Registry for different exam types with topic-based practice support
+    Registry for different exam types with flexible practice support (topics OR years)
     """
     
     def __init__(self):
@@ -18,12 +18,12 @@ class ExamRegistry:
     
     def _register_default_exams(self):
         """
-        Register enhanced exam types with topic-based practice
+        Register flexible exam types supporting both topic and year-based practice
         """
-        self.register_exam('jamb', TopicBasedJAMBExamType())
-        self.register_exam('sat', EnhancedSATExamType())
-        self.register_exam('neet', NEETExamType())
-        logger.info("Registered topic-based exam types: JAMB, SAT, NEET")
+        self.register_exam('jamb', FlexibleJAMBExamType())
+        self.register_exam('sat', FlexibleSATExamType())
+        self.register_exam('neet', FlexibleNEETExamType())
+        logger.info("Registered flexible exam types: JAMB, SAT, NEET (supporting both topics and years)")
     
     def register_exam(self, exam_name: str, exam_type: BaseExamType):
         """Register a new exam type"""
