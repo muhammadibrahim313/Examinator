@@ -1,120 +1,165 @@
-# Examinator - WhatsApp Exam Practice Bot with Real Past Questions
+# Examinator - Topic-Based WhatsApp Exam Practice Bot
 
-A comprehensive WhatsApp chatbot that helps students practice for computer-based exams using **real past questions** from JAMB, SAT, NEET, and more. Enhanced with AI-powered personalized learning that tracks performance, identifies weaknesses, and provides targeted practice.
+A revolutionary WhatsApp chatbot that helps students practice for computer-based exams using **real past questions** organized by **topics**. Students can practice specific topics or get mixed questions from multiple years without having to select specific years.
 
 ## 🎯 Key Features
 
-### Real Past Questions System
+### Topic-Based Practice System
+- **Practice by Topic**: Choose specific topics like "Cell Biology" or "Algebra"
+- **Mixed Practice**: Get questions from all topics in a subject
+- **Weak Areas Focus**: AI identifies and focuses on your weak areas
+- **Multi-Year Questions**: Questions automatically sourced from multiple years (2015-2024)
+- **No Year Selection Required**: Students focus on topics, not years
+
+### Real Past Questions
 - **Authentic Questions**: Real past questions from official exam bodies
-- **Multiple Years**: Questions sourced from multiple years (2015-2024)
-- **Year References**: Each question shows its source year
+- **Multiple Years**: Questions automatically sourced from 2015-2024
+- **Topic References**: Each question shows its topic and source year
 - **Standard Format**: Proper exam format with correct number of questions
-- **Comprehensive Coverage**: All major subjects for each exam type
 
 ### Supported Exams & Subjects
 
 #### JAMB (Joint Admissions and Matriculation Board)
-- **50 questions per subject** (standard JAMB format)
-- **Subjects**: Mathematics, English Language, Biology, Chemistry, Physics, Geography, Economics, Government, Literature in English, History, Agricultural Science, Computer Studies
-- **Years**: 2015-2024
+**All 12 subjects with topic-based practice:**
+- **Mathematics**: Algebra, Geometry, Trigonometry, Calculus, Statistics, etc.
+- **English Language**: Comprehension, Grammar, Vocabulary, Writing Skills, etc.
+- **Biology**: Cell Biology, Genetics, Evolution, Ecology, Physiology, etc.
+- **Chemistry**: Atomic Structure, Chemical Bonding, Organic Chemistry, etc.
+- **Physics**: Mechanics, Electricity, Waves, Thermodynamics, etc.
+- **Geography**: Physical Geography, Human Geography, Map Reading, etc.
+- **Economics**: Basic Concepts, Market Structure, National Income, etc.
+- **Government**: Political Theory, Constitutional Development, etc.
+- **Literature**: Poetry, Prose, Drama, Literary Devices, etc.
+- **History**: Nigerian History, African History, World History, etc.
+- **Agricultural Science**: Crop Production, Animal Production, Soil Science, etc.
+- **Computer Studies**: Fundamentals, Programming, Networks, etc.
 
-#### SAT (Scholastic Assessment Test)
-- **Variable questions per section** (standard SAT format)
-- **Subjects**: Math (58 questions), Reading and Writing (54 questions), Math Level 2, Biology, Chemistry, Physics
-- **Years**: 2018-2024
+#### SAT & NEET
+- Similar topic-based structure for all subjects
 
-#### NEET (National Eligibility cum Entrance Test)
-- **50 questions per subject** (standard NEET format)
-- **Subjects**: Physics, Chemistry, Biology, Botany, Zoology
-- **Years**: 2016-2024
+## 🚀 How Topic-Based Practice Works
 
-### Intelligent AI Features
-- **LLM-Powered Question Fetching**: Uses advanced AI to search and extract real past questions
-- **Context-Aware Responses**: AI understands exam context and user progress
-- **Smart Explanations**: Detailed explanations tailored to user's level
-- **Performance Analytics**: Comprehensive tracking and personalized recommendations
-
-## 🚀 How It Works
-
-### 1. **Real Question Fetching**
-When a user selects a subject:
+### 1. **Choose Subject, Then Practice Type**
 ```
-User: 1 (selects Biology)
-Bot: 🔍 Fetching 50 real JAMB past questions...
-     This may take a moment as we search for authentic past questions from multiple years.
+User: start
+Bot: Choose exam: 1. JAMB 2. SAT 3. NEET
 
-[AI searches for real JAMB Biology questions from 2015-2024]
+User: 1
+Bot: Choose subject: 1. Mathematics 2. Biology 3. Chemistry...
 
-Bot: 🎯 Starting JAMB Biology Practice
-     📚 50 real past questions from multiple years
-     ⏱️ Standard JAMB format
+User: 2 (Biology)
+Bot: 📚 Choose your practice type:
 
-     Question 1/50 (JAMB 2023):
-     Which of the following is the basic unit of life?
-     A. Tissue
-     B. Cell
-     C. Organ
-     D. Organism
-     
-     Reply with A, B, C, or D
+1. Cell Biology and Organization
+2. Genetics and Heredity
+3. Evolution and Ecology
+4. Plant Biology and Physiology
+5. Animal Biology and Physiology
+6. Human Biology and Health
+7. Reproduction and Development
+8. Classification of Living Things
+9. Biochemistry and Metabolism
+10. Environmental Biology
+11. Mixed Practice (All Topics)
+12. Weak Areas Focus
+
+Please reply with the number of your choice.
 ```
 
-### 2. **Enhanced Question Format**
-Each question includes:
-- **Year Reference**: Shows which year the question is from
-- **Real Source**: Authentic past exam questions
-- **Proper Format**: Standard exam format (A, B, C, D options)
-- **Detailed Explanations**: Comprehensive explanations for learning
+### 2. **Topic-Specific Practice**
+```
+User: 1 (Cell Biology)
+Bot: ✅ You selected: Cell Biology and Organization
 
-### 3. **Standard Exam Structure**
-- **JAMB**: 50 questions per subject (matches real exam)
-- **SAT**: Variable questions per section (matches real exam)
-- **NEET**: 50 questions per subject (matches real exam)
+🔍 Fetching 20 real JAMB past questions...
+📚 Practice questions on Cell Biology and Organization
+⏱️ Questions from multiple years (2015-2024)
+
+🎯 Starting JAMB Biology Practice
+📚 Topic: Cell Biology and Organization
+📊 20 real past questions from multiple years
+
+Question 1/20 (JAMB 2023 - Cell Biology):
+Which organelle is known as the powerhouse of the cell?
+A. Nucleus
+B. Ribosome
+C. Mitochondria
+D. Endoplasmic reticulum
+
+Reply with A, B, C, or D
+```
+
+### 3. **Mixed Practice**
+```
+User: 11 (Mixed Practice)
+Bot: ✅ You selected: Mixed Practice (All Topics)
+
+🔍 Fetching 30 real JAMB past questions...
+📚 Mixed practice covering all Biology topics
+⏱️ Questions from multiple years (2015-2024)
+
+[Questions from various topics: Cell Biology, Genetics, Ecology, etc.]
+```
+
+### 4. **Weak Areas Focus**
+```
+User: 12 (Weak Areas Focus)
+Bot: ✅ You selected: Weak Areas Focus
+
+🔍 Fetching 25 real JAMB past questions...
+📚 Focus on your weak areas in Biology
+⏱️ Questions from multiple years
+
+[AI selects questions from topics where user has struggled]
+```
+
+## 🎯 Benefits of Topic-Based Practice
+
+### For Students
+- **Targeted Learning**: Focus on specific topics you need to improve
+- **Flexible Practice**: No need to choose specific years
+- **Comprehensive Coverage**: Questions from multiple years ensure variety
+- **Weakness Identification**: AI tracks which topics you struggle with
+- **Efficient Study**: Practice exactly what you need
+
+### For Exam Preparation
+- **Real Questions**: Authentic past questions maintain exam authenticity
+- **Topic Mastery**: Master one topic at a time or practice everything
+- **Performance Tracking**: See your progress in each topic
+- **Adaptive Learning**: System focuses on your weak areas
 
 ## 🛠️ Quick Start
 
 ### 1. Environment Setup
 ```bash
-# Copy and configure environment variables
 cp .env.example .env
-
-# Add your API keys:
-GOOGLE_API_KEY=your_google_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
+# Add your API keys to .env file
 ```
 
 ### 2. Install and Start
 ```bash
-# This will create venv, install dependencies, and start the server
 python start_server.py
 ```
 
 ### 3. Setup ngrok for WhatsApp
 ```bash
-# In a separate terminal
 python setup_ngrok.py
 ```
 
 ### 4. Configure Twilio WhatsApp
-1. Go to [Twilio Console](https://console.twilio.com/)
-2. Navigate to WhatsApp Sandbox
-3. Set webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
+Set webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
 
 ## 📊 Example User Experience
 
-### Comprehensive Subject Selection
+### Topic Selection Flow
 ```
 User: start
 Bot: 🎓 Welcome to Examinator!
 
 Available exams:
 1. JAMB
-2. SAT  
+2. SAT
 3. NEET
-
-Please reply with the number of your choice.
 
 User: 1
 Bot: ✅ You selected: JAMB
@@ -123,84 +168,81 @@ Available JAMB subjects:
 1. Mathematics
 2. English Language
 3. Biology
-4. Chemistry
-5. Physics
-6. Geography
-7. Economics
-8. Government
-9. Literature in English
-10. History
-11. Agricultural Science
-12. Computer Studies
+[... all 12 subjects]
 
-Please reply with the number of your choice.
+User: 3
+Bot: ✅ You selected: Biology
+
+📚 Choose your practice type:
+1. Cell Biology and Organization
+2. Genetics and Heredity
+3. Evolution and Ecology
+[... all Biology topics]
+11. Mixed Practice (All Topics)
+12. Weak Areas Focus
 ```
 
-### Real Question Practice
+### Practice Session
 ```
-User: 3 (Biology)
-Bot: 🔍 Fetching 50 real JAMB past questions...
-
-[AI fetches authentic questions]
-
+User: 2 (Genetics)
 Bot: 🎯 Starting JAMB Biology Practice
-     📚 50 real past questions from multiple years
-     ⏱️ Standard JAMB format
+     📚 Topic: Genetics and Heredity
+     📊 20 real past questions from multiple years
 
-     Question 1/50 (JAMB 2023):
-     Which organelle is known as the powerhouse of the cell?
-     A. Nucleus
-     B. Ribosome  
-     C. Mitochondria
-     D. Endoplasmic reticulum
+     Question 1/20 (JAMB 2022 - Genetics):
+     What is the basic unit of heredity?
+     A. Chromosome
+     B. Gene
+     C. DNA
+     D. RNA
 
-     Reply with A, B, C, or D
+User: B
+Bot: ✅ Correct! The correct answer is B.
 
-User: C
-Bot: ✅ Correct! The correct answer is C.
-
-     📅 Source: JAMB 2023
-     💡 Mitochondria are known as the powerhouse of the cell because they produce ATP through cellular respiration.
+     📅 Source: JAMB 2022
+     📚 Topic: Genetics and Heredity
+     💡 A gene is the basic unit of heredity that carries genetic information...
      
      📊 Progress: 1/1 correct (100.0%)
 
-     Question 2/50 (JAMB 2021):
-     [Next question...]
+     Question 2/20 (JAMB 2019 - Genetics):
+     [Next genetics question...]
 ```
 
 ## 🔧 Technical Architecture
 
-### Question Fetching System
+### Topic-Based Question Fetching
 ```python
-# app/services/question_fetcher.py
-class QuestionFetcher:
-    async def fetch_questions(self, exam: str, subject: str, num_questions: int):
-        # Uses LLM agent to search for real past questions
-        # Parses and structures questions properly
-        # Returns authentic exam questions with year references
+# app/services/topic_based_question_fetcher.py
+class TopicBasedQuestionFetcher:
+    async def fetch_questions_by_topic(self, exam: str, subject: str, topic: str, num_questions: int):
+        # Fetches real questions for specific topic from multiple years
+        # Uses AI to search and extract authentic past questions
+        # Returns structured questions with topic and year references
 ```
 
-### Enhanced Exam Types
+### Enhanced Exam Flow
 ```python
-# app/services/exam_types/enhanced_jamb.py
-class EnhancedJAMBExamType:
-    async def load_questions_async(self, user_phone: str, user_state: Dict):
-        # Fetches real JAMB questions using QuestionFetcher
-        # Ensures 50 questions per subject (JAMB standard)
-        # Includes year references and proper formatting
+# app/services/exam_types/topic_based_jamb.py
+class TopicBasedJAMBExamType:
+    def get_flow_stages(self) -> List[str]:
+        return ['selecting_subject', 'selecting_practice_type', 'taking_exam']
+    
+    # Handles topic selection and question fetching
 ```
 
-### Exam Structure Configuration
+### Topic Structure
 ```json
-// app/data/exam_structure.json
+// app/data/topic_structure.json
 {
   "jamb": {
-    "subjects": {
-      "Biology": {
-        "questions_per_exam": 50,
-        "time_limit_minutes": 60,
-        "years_available": ["2015", "2016", ..., "2024"]
-      }
+    "Biology": {
+      "topics": [
+        "Cell Biology and Organization",
+        "Genetics and Heredity",
+        "Evolution and Ecology",
+        // ... all Biology topics
+      ]
     }
   }
 }
@@ -209,85 +251,51 @@ class EnhancedJAMBExamType:
 ## 📈 Performance Tracking
 
 ### Enhanced Analytics
-- **Question-Level Tracking**: Each question answer is recorded with year and source
-- **Subject Performance**: Track performance across all subjects
-- **Year-Based Analysis**: See how you perform on questions from different years
-- **Real Exam Simulation**: Practice with authentic exam conditions
+- **Topic-Level Performance**: Track performance in each topic
+- **Multi-Year Analysis**: See how you perform on questions from different years
+- **Weakness Identification**: AI identifies topics you struggle with
+- **Progress Monitoring**: Track improvement over time
 
 ### Performance Reports
 ```
 User: How am I doing?
 Bot: 📊 Your Performance Summary:
 
-• Total Sessions: 15
-• Questions Answered: 750 (real past questions)
-• Recent Accuracy: 78%
-• Trend: Improving
+🎯 Topic Performance:
+• Cell Biology: 85% (20 questions answered)
+• Genetics: 72% (15 questions answered)
+• Ecology: 90% (10 questions answered)
 
-🎯 Subject Performance:
-• JAMB Biology: 85% (2023: 90%, 2022: 80%)
-• JAMB Chemistry: 72% (2023: 75%, 2022: 69%)
+📚 Recent Practice:
+• JAMB Biology - Genetics: 80% (from multiple years)
+• JAMB Chemistry - Bonding: 65% (needs improvement)
 
-💪 Your Strengths:
-• Cell Biology (89% accuracy)
-• Genetics (85% accuracy)
-
-📚 Recommendations:
-• Focus on Organic Chemistry questions
-• Practice more 2021-2022 JAMB Chemistry questions
-```
-
-## 🔑 API Keys Required
-
-### Google AI API Key (Required)
-- Needed for LLM agent to search and extract real questions
-- Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
-
-### Tavily Search API Key (Recommended)
-- Enhances question search capabilities
-- Get from [Tavily](https://tavily.com/)
-
-## 📁 Project Structure
-
-```
-examinator/
-├── app/
-│   ├── services/
-│   │   ├── question_fetcher.py          # Real question fetching
-│   │   ├── exam_types/
-│   │   │   ├── enhanced_jamb.py         # JAMB with real questions
-│   │   │   ├── enhanced_sat.py          # SAT with real questions
-│   │   │   └── neet.py                  # NEET with real questions
-│   │   └── ...
-│   ├── data/
-│   │   ├── exam_structure.json          # Exam configurations
-│   │   └── user_analytics/              # User performance data
-│   └── ...
-├── requirements.txt                     # Includes supabase for future features
-└── README.md
+💪 Recommendations:
+• Focus more on Genetics concepts
+• Practice Chemical Bonding questions
+• Review Cell Biology fundamentals
 ```
 
 ## 🚀 Future Enhancements
 
-### Database Integration (Planned)
-- **Supabase Integration**: Store questions and user data in database
-- **Question Bank**: Comprehensive database of past questions
-- **Leaderboards**: Compare performance with other users
-- **Advanced Analytics**: Detailed performance insights
+### Advanced Topic Features
+- **Subtopic Breakdown**: Further divide topics into subtopics
+- **Difficulty Levels**: Easy, Medium, Hard questions within topics
+- **Topic Dependencies**: Understand prerequisite topics
+- **Mastery Tracking**: Track when you've mastered a topic
 
-### Additional Features
-- **Timed Exams**: Full exam simulation with time limits
-- **Mixed Practice**: Questions from multiple years in one session
-- **Difficulty Progression**: Adaptive difficulty based on performance
-- **Study Plans**: Personalized study schedules
+### Smart Recommendations
+- **Study Path**: AI suggests optimal topic sequence
+- **Time Allocation**: Recommend time to spend on each topic
+- **Review Schedule**: Spaced repetition for topic review
 
 ## 📞 Support
 
 For issues or questions:
-1. Check that all API keys are properly configured
-2. Ensure ngrok tunnel is active for WhatsApp integration
-3. Verify server is running on port 8000
-4. Review server logs for any errors
+1. Ensure all API keys are configured in `.env`
+2. Verify ngrok tunnel is active
+3. Check server logs for errors
+4. Test with simple commands like "start"
 
 ## 📄 License
 
@@ -295,4 +303,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-**Examinator** - Practice with real past questions, master your exams! 🎓
+**Examinator** - Master topics, not years! Practice with real past questions organized by topics. 🎓📚
