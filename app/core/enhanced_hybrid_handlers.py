@@ -60,9 +60,9 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         try:
             exam_type = self.exam_registry.get_exam_type(exam)
             
-            # FIXED: Handle loading_questions stage synchronously to prevent crashes
+            # FIXED: Handle loading_questions stage asynchronously
             if stage == 'loading_questions':
-                return self._handle_question_loading_sync(user_phone, user_state, exam_type)
+                return self._handle_question_loading_async(user_phone, user_state, exam_type)
             
             # Regular handling for other stages
             result = exam_type.handle_stage(stage, user_phone, message, user_state)
@@ -73,21 +73,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             
             state_updates = result.get('state_updates', {})
             next_stage = result.get('next_stage')
-            
-            # FIXED: Check for loading_questions transition and handle immediately
-            if next_stage == 'loading_questions':
-                # Apply state updates first
-                if state_updates:
-                    self.state_manager.update_user_state(user_phone, state_updates)
-                
-                # Get updated state
-                updated_user_state = self.state_manager.get_user_state(user_phone)
-                
-                # Immediately handle question loading
-                loading_result = self._handle_question_loading_sync(user_phone, updated_user_state, exam_type)
-                
-                # Return the loading result directly (which should contain the first question)
-                return loading_result
             
             if next_stage and next_stage != stage:
                 state_updates['stage'] = next_stage
@@ -107,12 +92,12 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'next_handler': f'{exam}_handler'
             }
     
-    def _handle_question_loading_sync(self, user_phone: str, user_state: Dict[str, Any], exam_type) -> Dict[str, Any]:
+    def _handle_question_loading_async(self, user_phone: str, user_state: Dict[str, Any], exam_type) -> Dict[str, Any]:
         """
-        FIXED: Handle question loading synchronously to prevent server crashes
+        FIXED: Handle question loading asynchronously using real LLM fetching
         """
         try:
-            logger.info(f"🔄 QUESTION LOADING START: Loading questions synchronously for {user_phone}")
+            logger.info(f"🔄 ASYNC QUESTION LOADING START: Loading questions asynchronously for {user_phone}")
             
             # Get the required parameters
             subject = user_state.get('subject')
@@ -130,25 +115,9 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             
             logger.info(f"📊 LOADING PARAMS: {user_state.get('exam')} {subject} - {practice_type} - {selected_option} - {num_questions} questions")
             
-            # FIXED: Generate fallback questions immediately instead of async loading
-            questions = self._generate_immediate_questions(user_state, num_questions)
-            
-            if not questions:
-                logger.error(f"❌ LOADING FAILED: Failed to generate questions for {user_phone}")
-                return {
-                    'response': "Sorry, could not load questions right now. Please try again or select another option.",
-                    'state_updates': {'stage': 'selecting_practice_option'},
-                    'next_handler': f'{user_state.get("exam")}_handler'
-                }
-            
-            logger.info(f"✅ LOADING SUCCESS: Generated {len(questions)} questions for {user_phone}")
-            
-            # Format first question
-            first_question = self._format_question(questions[0], 1, len(questions))
-            
-            # Create intro based on practice type
+            # Return a loading message and trigger async loading
             exam = user_state.get('exam', '').upper()
-            intro = f"🎯 Starting {exam} {subject} Practice\n"
+            intro = f"🔍 Fetching {num_questions} real {exam} {subject} questions...\n"
             
             if practice_type == "topic":
                 intro += f"📚 Topic: {selected_option}\n"
@@ -159,226 +128,58 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             else:
                 intro += f"📚 {selected_option}\n"
             
-            intro += f"📊 {len(questions)} practice questions\n"
-            intro += f"⏱️ Standard {exam} format\n\n"
+            intro += f"⏱️ This may take a moment as we search for authentic past questions...\n"
+            intro += f"🔍 Searching multiple years for the best questions"
             
-            logger.info(f"🎯 LOADING COMPLETE: Successfully loaded {len(questions)} questions for {user_phone}")
-            
+            # Set up async loading - this will be handled by the async method
             return {
-                'response': intro + first_question,
+                'response': intro,
                 'state_updates': {
-                    'stage': 'taking_exam',
-                    'questions': questions,
-                    'total_questions': len(questions),
-                    'current_question_index': 0,
-                    'score': 0,
-                    'practice_description': selected_option
+                    'stage': 'async_loading',  # New intermediate stage
+                    'loading_start_time': user_state.get('current_time', 0)
                 },
-                'next_handler': f'{user_state.get("exam")}_handler'
+                'next_handler': f'{user_state.get("exam")}_handler',
+                'async_task': 'load_questions'  # Signal that async loading is needed
             }
             
         except Exception as e:
-            logger.error(f"❌ CRITICAL ERROR in sync question loading: {str(e)}", exc_info=True)
+            logger.error(f"❌ CRITICAL ERROR in async question loading setup: {str(e)}", exc_info=True)
             return {
-                'response': "Sorry, there was an error loading questions. Please try selecting another option.",
+                'response': "Sorry, there was an error setting up question loading. Please try selecting another option.",
                 'state_updates': {'stage': 'selecting_practice_option'},
                 'next_handler': f'{user_state.get("exam")}_handler'
             }
     
-    def _generate_immediate_questions(self, user_state: Dict[str, Any], num_questions: int) -> list:
+    async def handle_async_loading(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate questions immediately without async operations
+        Handle the actual async question loading using LLM
         """
         try:
-            exam = user_state.get('exam', '').upper()
-            subject = user_state.get('subject', '')
-            practice_type = user_state.get('practice_type', 'mixed')
-            selected_option = user_state.get('selected_option', 'Practice')
+            logger.info(f"🔄 ASYNC LOADING: Starting real question fetch for {user_phone}")
             
-            logger.info(f"🔧 IMMEDIATE GENERATION: Creating {num_questions} questions for {exam} {subject} - {practice_type} - {selected_option}")
+            exam = user_state.get('exam')
+            exam_type = self.exam_registry.get_exam_type(exam)
             
-            questions = []
-            
-            # Generate realistic practice questions based on the exam and subject
-            question_templates = self._get_question_templates(exam, subject, practice_type, selected_option)
-            
-            for i in range(min(num_questions, len(question_templates))):
-                template = question_templates[i % len(question_templates)]
+            # Use the exam type's async loading method
+            if hasattr(exam_type, 'load_questions_async'):
+                result = await exam_type.load_questions_async(user_phone, user_state)
+                logger.info(f"✅ ASYNC LOADING COMPLETE: Got questions for {user_phone}")
+                return result
+            else:
+                logger.error(f"❌ ASYNC LOADING ERROR: Exam type {exam} doesn't support async loading")
+                return self._generate_fallback_response(user_phone, user_state)
                 
-                questions.append({
-                    "id": i + 1,
-                    "question": template["question"].format(
-                        exam=exam,
-                        subject=subject,
-                        topic=selected_option if practice_type == "topic" else "General",
-                        number=i + 1
-                    ),
-                    "options": template["options"],
-                    "correct_answer": template["correct_answer"],
-                    "explanation": template["explanation"].format(
-                        subject=subject,
-                        topic=selected_option if practice_type == "topic" else "this topic"
-                    ),
-                    "year": "2023",
-                    "exam": exam,
-                    "subject": subject,
-                    "topic": selected_option if practice_type == "topic" else "General",
-                    "source": "practice_questions",
-                    "difficulty": "standard"
-                })
-            
-            logger.info(f"✅ IMMEDIATE GENERATION COMPLETE: Generated {len(questions)} immediate questions for {exam} {subject}")
-            return questions
-            
         except Exception as e:
-            logger.error(f"❌ IMMEDIATE GENERATION ERROR: Error generating immediate questions: {str(e)}")
-            return []
+            logger.error(f"❌ ASYNC LOADING FAILED: Error in async question loading: {str(e)}", exc_info=True)
+            return self._generate_fallback_response(user_phone, user_state)
     
-    def _get_question_templates(self, exam: str, subject: str, practice_type: str, selected_option: str) -> list:
-        """
-        Get realistic question templates based on exam, subject, and practice type
-        """
-        templates = []
-        
-        # JAMB Biology templates
-        if exam == "JAMB" and subject == "Biology":
-            templates = [
-                {
-                    "question": "Which of the following organelles is responsible for cellular respiration?",
-                    "options": {"A": "Nucleus", "B": "Mitochondria", "C": "Ribosome", "D": "Endoplasmic reticulum"},
-                    "correct_answer": "B",
-                    "explanation": "Mitochondria are known as the powerhouse of the cell and are responsible for cellular respiration, producing ATP energy."
-                },
-                {
-                    "question": "The process by which green plants manufacture their own food is called:",
-                    "options": {"A": "Respiration", "B": "Transpiration", "C": "Photosynthesis", "D": "Osmosis"},
-                    "correct_answer": "C",
-                    "explanation": "Photosynthesis is the process by which green plants use sunlight, carbon dioxide, and water to produce glucose and oxygen."
-                },
-                {
-                    "question": "Which blood group is considered the universal donor?",
-                    "options": {"A": "Type A", "B": "Type B", "C": "Type AB", "D": "Type O"},
-                    "correct_answer": "D",
-                    "explanation": "Type O blood is considered the universal donor because it lacks A and B antigens, making it compatible with all blood types."
-                },
-                {
-                    "question": "The basic unit of heredity is the:",
-                    "options": {"A": "Chromosome", "B": "Gene", "C": "DNA", "D": "RNA"},
-                    "correct_answer": "B",
-                    "explanation": "A gene is the basic unit of heredity that carries genetic information from parents to offspring."
-                },
-                {
-                    "question": "Which of the following is NOT a characteristic of living things?",
-                    "options": {"A": "Growth", "B": "Reproduction", "C": "Crystallization", "D": "Respiration"},
-                    "correct_answer": "C",
-                    "explanation": "Crystallization is a physical process that occurs in non-living matter, not a characteristic of living organisms."
-                }
-            ]
-        
-        # JAMB Chemistry templates
-        elif exam == "JAMB" and subject == "Chemistry":
-            templates = [
-                {
-                    "question": "What is the atomic number of carbon?",
-                    "options": {"A": "4", "B": "6", "C": "8", "D": "12"},
-                    "correct_answer": "B",
-                    "explanation": "Carbon has an atomic number of 6, meaning it has 6 protons in its nucleus."
-                },
-                {
-                    "question": "Which of the following is a noble gas?",
-                    "options": {"A": "Oxygen", "B": "Nitrogen", "C": "Helium", "D": "Hydrogen"},
-                    "correct_answer": "C",
-                    "explanation": "Helium is a noble gas with a complete outer electron shell, making it chemically inert."
-                },
-                {
-                    "question": "The pH of pure water at 25°C is:",
-                    "options": {"A": "6", "B": "7", "C": "8", "D": "9"},
-                    "correct_answer": "B",
-                    "explanation": "Pure water has a pH of 7 at 25°C, which is considered neutral on the pH scale."
-                }
-            ]
-        
-        # JAMB Physics templates
-        elif exam == "JAMB" and subject == "Physics":
-            templates = [
-                {
-                    "question": "The SI unit of force is:",
-                    "options": {"A": "Joule", "B": "Newton", "C": "Watt", "D": "Pascal"},
-                    "correct_answer": "B",
-                    "explanation": "The Newton (N) is the SI unit of force, named after Sir Isaac Newton."
-                },
-                {
-                    "question": "Which of the following is a vector quantity?",
-                    "options": {"A": "Speed", "B": "Mass", "C": "Velocity", "D": "Temperature"},
-                    "correct_answer": "C",
-                    "explanation": "Velocity is a vector quantity because it has both magnitude and direction, unlike speed which is scalar."
-                },
-                {
-                    "question": "The acceleration due to gravity on Earth is approximately:",
-                    "options": {"A": "8.8 m/s²", "B": "9.8 m/s²", "C": "10.8 m/s²", "D": "11.8 m/s²"},
-                    "correct_answer": "B",
-                    "explanation": "The acceleration due to gravity on Earth is approximately 9.8 m/s² or 9.81 m/s² to be more precise."
-                }
-            ]
-        
-        # NEET Physics templates
-        elif exam == "NEET" and subject == "Physics":
-            templates = [
-                {
-                    "question": "A body is said to be in equilibrium when:",
-                    "options": {"A": "It is at rest", "B": "It moves with constant velocity", "C": "Net force on it is zero", "D": "All of the above"},
-                    "correct_answer": "C",
-                    "explanation": "A body is in equilibrium when the net force acting on it is zero, which can occur whether the body is at rest or moving with constant velocity."
-                },
-                {
-                    "question": "The dimensional formula for momentum is:",
-                    "options": {"A": "[MLT⁻¹]", "B": "[MLT⁻²]", "C": "[ML²T⁻¹]", "D": "[ML²T⁻²]"},
-                    "correct_answer": "A",
-                    "explanation": "Momentum = mass × velocity, so its dimensional formula is [M][LT⁻¹] = [MLT⁻¹]."
-                },
-                {
-                    "question": "Which law of thermodynamics introduces the concept of entropy?",
-                    "options": {"A": "Zeroth law", "B": "First law", "C": "Second law", "D": "Third law"},
-                    "correct_answer": "C",
-                    "explanation": "The second law of thermodynamics introduces the concept of entropy and states that entropy of an isolated system always increases."
-                }
-            ]
-        
-        # SAT Math templates
-        elif exam == "SAT" and subject == "Math":
-            templates = [
-                {
-                    "question": "If 2x + 3 = 11, what is the value of x?",
-                    "options": {"A": "3", "B": "4", "C": "5", "D": "6"},
-                    "correct_answer": "B",
-                    "explanation": "Solving 2x + 3 = 11: 2x = 11 - 3 = 8, so x = 8/2 = 4."
-                },
-                {
-                    "question": "What is the area of a circle with radius 5?",
-                    "options": {"A": "10π", "B": "25π", "C": "50π", "D": "100π"},
-                    "correct_answer": "B",
-                    "explanation": "Area of a circle = πr². With radius 5, area = π(5)² = 25π."
-                },
-                {
-                    "question": "If f(x) = 2x + 1, what is f(3)?",
-                    "options": {"A": "5", "B": "6", "C": "7", "D": "8"},
-                    "correct_answer": "C",
-                    "explanation": "f(3) = 2(3) + 1 = 6 + 1 = 7."
-                }
-            ]
-        
-        # Default templates if no specific match
-        if not templates:
-            templates = [
-                {
-                    "question": f"This is a sample {exam} {subject} practice question to test your knowledge.",
-                    "options": {"A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D"},
-                    "correct_answer": "B",
-                    "explanation": f"This is a practice explanation for {subject} concepts."
-                }
-            ]
-        
-        return templates
+    def _generate_fallback_response(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate fallback response when async loading fails"""
+        return {
+            'response': "Sorry, there was an error loading questions. Please try again or select another option.",
+            'state_updates': {'stage': 'selecting_practice_option'},
+            'next_handler': f'{user_state.get("exam")}_handler'
+        }
     
     def _handle_enhanced_answer(self, user_phone: str, message: str, 
                               user_state: Dict[str, Any], base_result: Dict[str, Any]) -> Dict[str, Any]:

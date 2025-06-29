@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedSmartMessageProcessor:
     """
-    Enhanced message processor with personalized learning capabilities
+    Enhanced message processor with personalized learning capabilities and async question loading
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -36,7 +36,7 @@ class EnhancedSmartMessageProcessor:
     
     async def process_message(self, user_phone: str, message: str) -> str:
         """
-        Process a message using enhanced handlers with personalization
+        Process a message using enhanced handlers with personalization and async loading
         """
         try:
             # Get current user state
@@ -46,6 +46,10 @@ class EnhancedSmartMessageProcessor:
             logger.info(f"Processing enhanced message from {user_phone}")
             logger.info(f"Current stage: {current_stage}")
             logger.info(f"Message: '{message}'")
+            
+            # FIXED: Handle async loading stage
+            if current_stage == 'async_loading':
+                return await self._handle_async_loading(user_phone, user_state)
             
             # Find the appropriate handler
             handler = self._find_handler(message, user_state)
@@ -57,6 +61,16 @@ class EnhancedSmartMessageProcessor:
             
             # Process the message (this may be async now)
             result = await handler.handle(user_phone, message, user_state)
+            
+            # FIXED: Check if async loading is needed
+            if result.get('async_task') == 'load_questions':
+                # Apply state updates first
+                state_updates = result.get('state_updates', {})
+                if state_updates:
+                    self.state_manager.update_user_state(user_phone, state_updates)
+                
+                # Return loading message, actual loading will happen on next message/poll
+                return result.get('response', 'Loading questions...')
             
             # Apply state updates if any
             state_updates = result.get('state_updates', {})
@@ -81,6 +95,46 @@ class EnhancedSmartMessageProcessor:
         except Exception as e:
             logger.error(f"Error processing enhanced message from {user_phone}: {str(e)}", exc_info=True)
             return "Sorry, something went wrong. Please try again or send 'restart' to start over."
+    
+    async def _handle_async_loading(self, user_phone: str, user_state: Dict[str, Any]) -> str:
+        """
+        Handle async question loading
+        """
+        try:
+            logger.info(f"🔄 ASYNC LOADING: Processing async loading for {user_phone}")
+            
+            # Find the exam handler
+            exam_handler = None
+            for handler in self.handlers:
+                if isinstance(handler, PersonalizedExamTypeHandler):
+                    exam_handler = handler
+                    break
+            
+            if not exam_handler:
+                logger.error(f"❌ ASYNC LOADING ERROR: No exam handler found for {user_phone}")
+                return "Sorry, there was an error loading questions. Please try again."
+            
+            # Perform async loading
+            result = await exam_handler.handle_async_loading(user_phone, user_state)
+            
+            # Apply state updates
+            state_updates = result.get('state_updates', {})
+            if state_updates:
+                logger.info(f"Applying async loading state updates for {user_phone}: {list(state_updates.keys())}")
+                self.state_manager.update_user_state(user_phone, state_updates)
+            
+            response = result.get('response', 'Questions loaded successfully!')
+            logger.info(f"✅ ASYNC LOADING COMPLETE: Loaded questions for {user_phone}")
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"❌ ASYNC LOADING FAILED: Error in async loading for {user_phone}: {str(e)}", exc_info=True)
+            
+            # Reset to practice option selection on error
+            self.state_manager.update_user_state(user_phone, {'stage': 'selecting_practice_option'})
+            
+            return "Sorry, there was an error loading questions. Please try selecting another option."
     
     def _find_handler(self, message: str, user_state: Dict[str, Any]) -> Optional:
         """
