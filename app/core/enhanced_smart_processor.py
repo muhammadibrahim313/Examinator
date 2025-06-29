@@ -1,5 +1,9 @@
 from typing import List, Dict, Any, Optional
-from app.core.enhanced_hybrid_handlers import PersonalizedExamTypeHandler, SmartPerformanceHandler
+from app.core.enhanced_hybrid_handlers import (
+    PersonalizedExamTypeHandler, 
+    SmartPerformanceHandler,
+    SmartFAQHandler
+)
 from app.core.hybrid_message_handler import (
     SmartGlobalCommandHandler,
     SmartExamSelectionHandler,
@@ -13,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedSmartMessageProcessor:
     """
-    Enhanced message processor with personalized learning capabilities and async question loading
+    Enhanced message processor with navigation, FAQ, and test control capabilities
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -24,19 +28,20 @@ class EnhancedSmartMessageProcessor:
         self._setup_handlers()
     
     def _setup_handlers(self):
-        """Setup enhanced handlers with personalization"""
+        """Setup enhanced handlers with FAQ and navigation support"""
         self.handlers = [
             SmartGlobalCommandHandler(self.state_manager, self.exam_registry),
-            SmartPerformanceHandler(self.state_manager, self.exam_registry),  # New performance handler
+            SmartFAQHandler(self.state_manager, self.exam_registry),  # New FAQ handler
+            SmartPerformanceHandler(self.state_manager, self.exam_registry),
             SmartExamSelectionHandler(self.state_manager, self.exam_registry),
-            PersonalizedExamTypeHandler(self.state_manager, self.exam_registry),  # Enhanced exam handler
+            PersonalizedExamTypeHandler(self.state_manager, self.exam_registry),  # Enhanced with navigation
             SmartFallbackHandler(self.state_manager, self.exam_registry)
         ]
-        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers")
+        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers with FAQ support")
     
     async def process_message(self, user_phone: str, message: str) -> str:
         """
-        Process a message using enhanced handlers with personalization and async loading
+        Process a message using enhanced handlers with navigation, FAQ, and test control
         """
         try:
             # Get current user state
@@ -47,7 +52,7 @@ class EnhancedSmartMessageProcessor:
             logger.info(f"Current stage: {current_stage}")
             logger.info(f"Message: '{message}'")
             
-            # FIXED: Handle async loading stage
+            # Handle async loading stage
             if current_stage == 'async_loading':
                 return await self._handle_async_loading(user_phone, user_state)
             
@@ -62,7 +67,7 @@ class EnhancedSmartMessageProcessor:
             # Process the message (this may be async now)
             result = await handler.handle(user_phone, message, user_state)
             
-            # FIXED: Check if async loading is needed
+            # Check if async loading is needed
             if result.get('async_task') == 'load_questions':
                 # Apply state updates first
                 state_updates = result.get('state_updates', {})
