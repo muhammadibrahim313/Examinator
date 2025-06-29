@@ -163,12 +163,30 @@ class SmartExamSelectionHandler(HybridMessageHandler):
         return user_state.get('stage') == 'selecting_exam'
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Use structured logic for number selections, LLM for other queries"""
+        """FIXED: Use structured logic for number selections, LLM for other queries"""
+        message_clean = message.strip()
+        
+        # Check if it's a valid number selection
         try:
-            int(message.strip())
-            return False  # It's a number, use structured logic
+            choice = int(message_clean)
+            exams = self.exam_registry.get_available_exams()
+            if 1 <= choice <= len(exams):
+                logger.info(f"📊 EXAM SELECTION: Valid number choice {choice} detected - using structured logic")
+                return False  # Use structured logic for valid numbers
         except ValueError:
-            return True  # Not a number, use LLM
+            pass
+        
+        # Check if it's an invalid number
+        try:
+            int(message_clean)
+            logger.info(f"📊 EXAM SELECTION: Invalid number detected - using structured logic for error handling")
+            return False  # Use structured logic to handle invalid numbers
+        except ValueError:
+            pass
+        
+        # For non-numeric input, use LLM
+        logger.info(f"📊 EXAM SELECTION: Non-numeric input '{message}' - using LLM agent")
+        return True
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle exam selection with structured logic"""
@@ -221,16 +239,20 @@ class SmartExamSelectionHandler(HybridMessageHandler):
                         'next_handler': 'exam_selection'
                     }
             else:
+                # Invalid number range
+                exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
                 return {
-                    'response': f"Invalid choice. Please select a number between 1 and {len(exams)}.",
+                    'response': f"❌ Invalid choice. Please select a number between 1 and {len(exams)}.\n\n🎓 Available exams:\n{exam_list}\n\nPlease reply with the number of your choice.",
                     'state_updates': {},
                     'next_handler': 'exam_selection'
                 }
                 
         except ValueError:
+            # Not a number at all
             logger.warning(f"Invalid input for exam selection: '{message}'")
+            exam_list = "\n".join([f"{i+1}. {exam.upper()}" for i, exam in enumerate(exams)])
             return {
-                'response': f"Please enter a valid number between 1 and {len(exams)}.",
+                'response': f"❌ Please enter a valid number between 1 and {len(exams)}.\n\n🎓 Available exams:\n{exam_list}\n\nPlease reply with the number of your choice.",
                 'state_updates': {},
                 'next_handler': 'exam_selection'
             }
