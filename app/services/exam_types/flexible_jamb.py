@@ -99,16 +99,9 @@ class FlexibleJAMBExamType(BaseExamType):
             self.logger.info(f"User {user_phone} selected JAMB subject: {selected_subject}")
             
             response = f"✅ You selected: {selected_subject}\n\n"
-            response += f"📚 JAMB {selected_subject} Practice Options:\n\n"
             response += "🎯 How would you like to practice?\n\n"
             response += "1. Practice by Topic\n"
-            response += "   📚 Focus on specific topics like 'Cell Biology' or 'Genetics'\n"
-            response += "   🎯 Questions from multiple years on your chosen topic\n"
-            response += "   💡 Perfect for targeted learning and concept mastery\n\n"
-            response += "2. Practice by Year\n"
-            response += "   📅 Practice questions from a specific year (2015-2024)\n"
-            response += "   📊 Complete year coverage with all topics\n"
-            response += "   🎯 Great for exam simulation and pattern familiarity\n\n"
+            response += "2. Practice by Year\n\n"
             response += "Please reply with 1 or 2."
             
             return {
@@ -142,17 +135,14 @@ class FlexibleJAMBExamType(BaseExamType):
         
         if selected_mode:
             practice_mode = 'topic' if '1' in message or 'topic' in selected_mode.lower() else 'year'
-            self.logger.info(f"User {user_phone} selected practice mode: {practice_mode}")
+            self.logger.info(f"User {user_phone} selected JAMB practice mode: {practice_mode}")
             
             if practice_mode == 'topic':
                 # Get topic options
                 topic_options = self.topic_fetcher.get_practice_options('jamb', subject)
                 response = f"✅ You selected: Practice by Topic\n\n"
                 response += f"📚 Choose a topic for {subject}:\n\n"
-                response += "🎯 Select your focus area:\n"
-                response += "• Specific topics for targeted practice\n"
-                response += "• Mixed practice for comprehensive review\n"
-                response += "• Weak areas focus for improvement\n\n"
+                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(topic_options, f"{subject} Topics")
                 
             else:  # year mode
@@ -160,10 +150,7 @@ class FlexibleJAMBExamType(BaseExamType):
                 year_options = self._get_available_years('jamb', subject)
                 response = f"✅ You selected: Practice by Year\n\n"
                 response += f"📅 Choose a year for {subject}:\n\n"
-                response += "🎯 Select your preferred year:\n"
-                response += "• Recent years for current patterns\n"
-                response += "• Older years for comprehensive coverage\n"
-                response += "• Each year contains 50 standard JAMB questions\n\n"
+                response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
                 response += self.format_options_list(year_options, f"Available Years")
             
             return {

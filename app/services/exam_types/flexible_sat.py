@@ -84,11 +84,8 @@ class FlexibleSATExamType(BaseExamType):
             topic_options = self.topic_fetcher.get_practice_options('sat', selected_subject)
             
             response = f"✅ You selected: {selected_subject}\n\n"
-            response += f"📚 SAT {selected_subject} Practice Options:\n\n"
-            response += "🎯 Choose your practice type:\n"
-            response += "• Topic-focused practice for targeted learning\n"
-            response += "• Mixed practice for comprehensive review\n"
-            response += "• Weak areas focus for improvement\n\n"
+            response += f"📚 Choose your practice type for {selected_subject}:\n\n"
+            response += "⏳ Note: Questions may take a moment to load after your selection\n\n"
             response += self.format_options_list(topic_options, f"{selected_subject} Practice Types")
             
             return {
