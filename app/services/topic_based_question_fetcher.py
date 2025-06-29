@@ -25,26 +25,86 @@ class TopicBasedQuestionFetcher:
     def _load_exam_structure(self) -> Dict[str, Any]:
         """Load exam structure configuration"""
         try:
-            with open('app/data/exam_structure.json', 'r') as f:
-                return json.load(f)
+            # Try multiple possible paths
+            possible_paths = [
+                'app/data/exam_structure.json',
+                './app/data/exam_structure.json',
+                '/opt/render/project/src/app/data/exam_structure.json'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        data = json.load(f)
+                        logger.info(f"Successfully loaded exam structure from {path}")
+                        return data
+            
+            logger.warning("No exam structure file found, using default")
+            return self._get_default_exam_structure()
+            
         except Exception as e:
             logger.error(f"Error loading exam structure: {e}")
-            return {}
+            return self._get_default_exam_structure()
     
     def _load_topic_structure(self) -> Dict[str, Any]:
         """Load topic structure configuration"""
         try:
-            with open('app/data/topic_structure.json', 'r') as f:
-                return json.load(f)
+            # Try multiple possible paths
+            possible_paths = [
+                'app/data/topic_structure.json',
+                './app/data/topic_structure.json',
+                '/opt/render/project/src/app/data/topic_structure.json'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        data = json.load(f)
+                        logger.info(f"Successfully loaded topic structure from {path}")
+                        return data
+            
+            logger.warning("No topic structure file found, using default")
+            return self._get_default_topic_structure()
+            
         except Exception as e:
             logger.error(f"Error loading topic structure: {e}")
-            return {}
+            return self._get_default_topic_structure()
+    
+    def _get_default_exam_structure(self) -> Dict[str, Any]:
+        """Return default exam structure"""
+        return {
+            "jamb": {"name": "JAMB", "subjects": {"Biology": {"questions_per_exam": 50, "years_available": ["2023", "2024"]}}},
+            "sat": {"name": "SAT", "subjects": {"Math": {"questions_per_exam": 58, "years_available": ["2023", "2024"]}}},
+            "neet": {"name": "NEET", "subjects": {"Biology": {"questions_per_exam": 50, "years_available": ["2023", "2024"]}}}
+        }
+    
+    def _get_default_topic_structure(self) -> Dict[str, Any]:
+        """Return default topic structure"""
+        return {
+            "jamb": {
+                "Biology": {"topics": ["Cell Biology", "Genetics", "Ecology", "Evolution"]},
+                "Chemistry": {"topics": ["Atomic Structure", "Chemical Bonding", "Acids and Bases"]},
+                "Physics": {"topics": ["Mechanics", "Electricity", "Waves"]},
+                "Mathematics": {"topics": ["Algebra", "Geometry", "Calculus"]}
+            },
+            "sat": {
+                "Math": {"topics": ["Algebra", "Geometry", "Statistics"]},
+                "Reading and Writing": {"topics": ["Reading Comprehension", "Grammar", "Vocabulary"]}
+            },
+            "neet": {
+                "Biology": {"topics": ["Cell Biology", "Genetics", "Ecology"]},
+                "Chemistry": {"topics": ["Organic Chemistry", "Inorganic Chemistry"]},
+                "Physics": {"topics": ["Mechanics", "Thermodynamics", "Optics"]}
+            }
+        }
     
     def get_available_topics(self, exam: str, subject: str) -> List[str]:
         """Get available topics for an exam subject"""
         exam_topics = self.topic_structure.get(exam.lower(), {})
         subject_topics = exam_topics.get(subject, {})
-        return subject_topics.get('topics', [])
+        topics = subject_topics.get('topics', [])
+        logger.info(f"Available topics for {exam} {subject}: {topics}")
+        return topics
     
     def get_practice_options(self, exam: str, subject: str) -> List[str]:
         """Get practice options: topics + mixed practice"""
@@ -52,6 +112,7 @@ class TopicBasedQuestionFetcher:
         options = topics.copy()
         options.append("Mixed Practice (All Topics)")
         options.append("Weak Areas Focus")
+        logger.info(f"Practice options for {exam} {subject}: {len(options)} options")
         return options
     
     async def fetch_questions_by_topic(self, exam: str, subject: str, topic: str, num_questions: int = 20) -> List[Dict[str, Any]]:
@@ -61,14 +122,10 @@ class TopicBasedQuestionFetcher:
         try:
             exam_info = self.exam_structure.get(exam.lower(), {})
             subject_info = exam_info.get('subjects', {}).get(subject, {})
-            available_years = subject_info.get('years_available', [])
-            
-            if not available_years:
-                logger.warning(f"No years available for {exam} {subject}")
-                return []
+            available_years = subject_info.get('years_available', ["2023", "2024"])
             
             # Use multiple years for diverse questions
-            selected_years = random.sample(available_years, min(4, len(available_years)))
+            selected_years = random.sample(available_years, min(3, len(available_years)))
             
             # Create topic-specific search query
             search_query = self._create_topic_search_query(exam, subject, topic, selected_years, num_questions)
@@ -88,12 +145,11 @@ class TopicBasedQuestionFetcher:
             # Parse the response to extract structured questions
             questions = self._parse_questions_from_response(full_response, exam, subject, topic, selected_years)
             
-            # Ensure we have enough questions
-            if len(questions) < num_questions:
-                additional_questions = await self._fetch_additional_topic_questions(
-                    exam, subject, topic, num_questions - len(questions), selected_years
-                )
-                questions.extend(additional_questions)
+            # If we don't have enough questions, generate fallback
+            if len(questions) < num_questions // 2:
+                logger.warning(f"Only got {len(questions)} questions for topic {topic}, generating fallback")
+                fallback_questions = self._generate_fallback_topic_questions(exam, subject, topic, num_questions - len(questions))
+                questions.extend(fallback_questions)
             
             # Shuffle and return the requested number
             random.shuffle(questions)
@@ -101,7 +157,33 @@ class TopicBasedQuestionFetcher:
             
         except Exception as e:
             logger.error(f"Error fetching questions for {exam} {subject} - {topic}: {e}")
-            return []
+            return self._generate_fallback_topic_questions(exam, subject, topic, num_questions)
+    
+    def _generate_fallback_topic_questions(self, exam: str, subject: str, topic: str, num_questions: int) -> List[Dict[str, Any]]:
+        """Generate fallback questions for a specific topic"""
+        questions = []
+        
+        for i in range(min(num_questions, 5)):  # Generate up to 5 fallback questions
+            questions.append({
+                "id": i + 1,
+                "question": f"Sample {exam.upper()} {subject} question about {topic}. This tests your understanding of {topic} concepts.",
+                "options": {
+                    "A": f"Option A related to {topic}",
+                    "B": f"Option B related to {topic}",
+                    "C": f"Option C related to {topic}",
+                    "D": f"Option D related to {topic}"
+                },
+                "correct_answer": random.choice(["A", "B", "C", "D"]),
+                "explanation": f"This is a sample explanation for {topic} in {subject}.",
+                "year": "2023",
+                "exam": exam.upper(),
+                "subject": subject,
+                "topic": topic,
+                "source": "fallback",
+                "difficulty": "standard"
+            })
+        
+        return questions
     
     async def fetch_mixed_practice_questions(self, exam: str, subject: str, num_questions: int = 30) -> List[Dict[str, Any]]:
         """
@@ -110,14 +192,14 @@ class TopicBasedQuestionFetcher:
         try:
             topics = self.get_available_topics(exam, subject)
             if not topics:
-                return []
+                return self._generate_fallback_topic_questions(exam, subject, "Mixed Topics", num_questions)
             
             # Distribute questions across topics
             questions_per_topic = max(2, num_questions // len(topics))
             all_questions = []
             
             # Get questions from each topic
-            for topic in topics[:min(10, len(topics))]:  # Limit to 10 topics max
+            for topic in topics[:min(5, len(topics))]:  # Limit to 5 topics max
                 topic_questions = await self.fetch_questions_by_topic(
                     exam, subject, topic, questions_per_topic
                 )
@@ -129,7 +211,7 @@ class TopicBasedQuestionFetcher:
             
         except Exception as e:
             logger.error(f"Error fetching mixed practice questions: {e}")
-            return []
+            return self._generate_fallback_topic_questions(exam, subject, "Mixed Topics", num_questions)
     
     async def fetch_weak_areas_questions(self, exam: str, subject: str, user_phone: str, num_questions: int = 25) -> List[Dict[str, Any]]:
         """
@@ -155,7 +237,7 @@ class TopicBasedQuestionFetcher:
             
         except Exception as e:
             logger.error(f"Error fetching weak areas questions: {e}")
-            return []
+            return self._generate_fallback_topic_questions(exam, subject, "Weak Areas", num_questions)
     
     def _create_topic_search_query(self, exam: str, subject: str, topic: str, years: List[str], num_questions: int) -> str:
         """
@@ -296,42 +378,3 @@ class TopicBasedQuestionFetcher:
             if year in text:
                 return year
         return random.choice(available_years) if available_years else "2023"
-    
-    async def _fetch_additional_topic_questions(self, exam: str, subject: str, topic: str, needed: int, years: List[str]) -> List[Dict[str, Any]]:
-        """Fetch additional questions for a specific topic"""
-        try:
-            search_query = f"""
-            I need {needed} more real {exam.upper()} {subject} past questions specifically about "{topic}" from years {', '.join(years)}.
-            
-            IMPORTANT: All questions must be about "{topic}" only.
-            
-            Please provide them in the same format:
-            **Question X (Year: XXXX - Topic: {topic}):**
-            [Question text about {topic}]
-            A. [Option A]
-            B. [Option B]
-            C. [Option C] 
-            D. [Option D]
-            **Correct Answer:** [Letter]
-            **Explanation:** [Detailed explanation about {topic}]
-            
-            Focus on different aspects of {topic} that weren't covered in previous questions.
-            """
-            
-            agent_input = {"messages": [HumanMessage(content=search_query)]}
-            
-            response_chunks = []
-            async for chunk in self.agent.astream(agent_input, config=self.config):
-                if 'messages' in chunk:
-                    for msg in chunk['messages']:
-                        if hasattr(msg, 'content') and msg.content:
-                            response_chunks.append(msg.content)
-            
-            full_response = '\n'.join(response_chunks) if response_chunks else ""
-            additional_questions = self._parse_questions_from_response(full_response, exam, subject, topic, years)
-            
-            return additional_questions
-            
-        except Exception as e:
-            logger.error(f"Error fetching additional topic questions: {e}")
-            return []
