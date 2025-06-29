@@ -131,6 +131,53 @@ class HybridModelManager:
         except Exception as e:
             raise Exception(f"All models failed: {str(e)}")
     
+    def get_model_response_sync(self, messages):
+        """Synchronous version of get_model_response"""
+        current_time = time.time()
+        
+        # Strategy 1: Try Groq first (faster, higher limits)
+        if self.should_use_groq():
+            try:
+                print("🚀 Using Groq (primary)")
+                model = self.get_primary_model()
+                response = model.invoke(messages)
+                
+                self.groq_calls += 1
+                print(f"✅ Groq success (calls: {self.groq_calls})")
+                return response, "groq"
+                
+            except Exception as e:
+                self.groq_failures += 1
+                self.last_groq_failure = current_time
+                print(f"❌ Groq failed: {str(e)[:100]}...")
+                print(f"🔄 Falling back to Gemini")
+        
+        # Strategy 2: Try Gemini as fallback
+        if self.should_use_gemini():
+            try:
+                print("🔧 Using Gemini (fallback)")
+                model = self.get_fallback_model()
+                response = model.invoke(messages)
+                
+                self.gemini_calls += 1
+                print(f"✅ Gemini success (calls: {self.gemini_calls})")
+                return response, "gemini"
+                
+            except Exception as e:
+                self.gemini_failures += 1
+                self.last_gemini_failure = current_time
+                print(f"❌ Gemini failed: {str(e)[:100]}...")
+                raise Exception(f"Both models failed - Gemini: {str(e)[:50]}")
+        
+        # Strategy 3: If both are in cooldown, try anyway (emergency)
+        print("⚠️ Both models in cooldown, trying emergency fallback")
+        try:
+            model = self.get_fallback_model()
+            response = model.invoke(messages)
+            return response, "gemini-emergency"
+        except Exception as e:
+            raise Exception(f"All models failed: {str(e)}")
+    
     def get_stats(self):
         """Get usage statistics"""
         total_calls = self.groq_calls + self.gemini_calls
@@ -328,8 +375,8 @@ def summarize_content(state: QuestionState):
             HumanMessage(content=f"Summarize: {state['query']}")
         ]
 
-        # Use hybrid model manager
-        response, model_used = hybrid_manager.get_model_response(messages, use_async=False)
+        # Use hybrid model manager synchronously
+        response, model_used = hybrid_manager.get_model_response_sync(messages)
         
         print(f"✅ Summary generated successfully using {model_used}")
         
