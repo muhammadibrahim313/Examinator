@@ -29,7 +29,7 @@ async def whatsapp_webhook(
     To: str = Form(...)
 ):
     """
-    FIXED: WhatsApp webhook handler with immediate async loading and no double input issues
+    FIXED: WhatsApp webhook handler with immediate async loading - no follow-up messages needed
     """
     logger.info(f"Received message from {From}: {Body}")
     
@@ -51,24 +51,23 @@ async def whatsapp_webhook(
             
             # Trigger async loading immediately
             response_text = await smart_message_processor._handle_async_loading(user_phone, user_state)
-            msg.body(response_text)
             
-        else:
-            # Process the message using our enhanced smart processor
-            response_text = await smart_message_processor.process_message(user_phone, message_body)
-            
-            # FIXED: If response indicates async loading started, trigger it immediately in the same request
-            updated_state = state_manager.get_user_state(user_phone)
-            if updated_state.get('stage') == 'async_loading':
-                logger.info(f"🔄 IMMEDIATE ASYNC: Triggering immediate async loading for {user_phone}")
-                
-                # Trigger the async loading immediately - no waiting for next message
-                loading_response = await smart_message_processor._handle_async_loading(user_phone, updated_state)
-                
-                # Replace the original response with the final result
-                msg.body(loading_response)
+            # Extract response from the result dict
+            if isinstance(response_text, dict):
+                final_response = response_text.get('response', 'Questions loaded successfully!')
+                # Apply any state updates
+                state_updates = response_text.get('state_updates', {})
+                if state_updates:
+                    state_manager.update_user_state(user_phone, state_updates)
+                msg.body(final_response)
             else:
                 msg.body(response_text)
+            
+        else:
+            # FIXED: Process the message using our enhanced smart processor
+            # The processor now handles async loading immediately within the same call
+            response_text = await smart_message_processor.process_message(user_phone, message_body)
+            msg.body(response_text)
         
     except Exception as e:
         logger.error(f"Error processing message from {user_phone}: {str(e)}", exc_info=True)
@@ -89,7 +88,7 @@ async def whatsapp_webhook_verify():
     """
     Webhook verification endpoint
     """
-    return {"message": "WhatsApp webhook endpoint is ready with FIXED loading and validation"}
+    return {"message": "WhatsApp webhook endpoint is ready with FIXED immediate loading"}
 
 @router.get("/analytics/{user_phone}")
 async def get_user_analytics(user_phone: str):
@@ -126,7 +125,16 @@ async def trigger_async_loading(user_phone: str):
         user_state = state_manager.get_user_state(clean_phone)
         
         if user_state.get('stage') == 'async_loading':
-            response_text = await smart_message_processor._handle_async_loading(clean_phone, user_state)
+            response_result = await smart_message_processor._handle_async_loading(clean_phone, user_state)
+            
+            if isinstance(response_result, dict):
+                response_text = response_result.get('response', 'Questions loaded successfully!')
+                state_updates = response_result.get('state_updates', {})
+                if state_updates:
+                    state_manager.update_user_state(clean_phone, state_updates)
+            else:
+                response_text = response_result
+            
             return {
                 "user_phone": user_phone,
                 "response": response_text,
