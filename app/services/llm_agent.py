@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 from langchain_core.messages import HumanMessage
-from app.agent_reflection.RAG_reflection import agent
+from app.agent_reflection.RAG_reflection import agent, hybrid_manager
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -71,14 +71,39 @@ class LLMAgentService:
             
         except Exception as e:
             logger.error(f"Error processing LLM message from {user_phone}: {str(e)}", exc_info=True)
-            return "I'm sorry, I encountered an error while processing your request. Please try again or contact support."
+            
+            # Check hybrid model status for better error messages
+            stats = hybrid_manager.get_stats()
+            
+            # Provide more helpful error responses based on the context
+            if "hello" in message.lower() or "hi" in message.lower():
+                return "Hello! 👋 I'm your Exam Practice Bot. Send 'start' to begin practicing for exams!"
+            elif context and context.get('exam'):
+                exam_name = context.get('exam', '').upper()
+                return f"I'm having trouble processing that request. You're practicing for {exam_name}. Send 'restart' to start over or try a different question."
+            else:
+                return "I'm having a technical issue right now. Please send 'start' to begin exam practice or try again in a moment."
     
     def _enhance_message_with_context(self, message: str, context: Optional[Dict[str, Any]]) -> str:
         """
-        Enhance the user message with exam context if available
+        Enhance the user message with exam context and word limit enforcement
         """
+        # Base system prompt with word limit
+        system_prompt = """
+You are a helpful exam practice assistant.
+
+CRITICAL RESPONSE RULES:
+- MAXIMUM 50 WORDS per response
+- Be direct and helpful
+- Use 1-2 emojis if appropriate 
+- Keep responses brief and actionable
+- Focus on exam practice for JAMB, SAT, NEET
+
+WORD LIMIT: Your response must be under 50 words total!
+"""
+        
         if not context:
-            return message
+            return f"{system_prompt}\n\nUser message: {message}"
         
         # Add exam context to help the agent understand the user's situation
         context_parts = []
@@ -100,29 +125,58 @@ class LLMAgentService:
         if context.get('score') is not None:
             context_parts.append(f"Current score: {context['score']}")
         
+        # Special handling for greetings
+        if context.get('is_greeting'):
+            context_parts.append(f"GREETING: {context.get('greeting_context', 'General greeting')}")
+        
         if context_parts:
             context_info = " | ".join(context_parts)
-            enhanced_message = f"[EXAM CONTEXT: {context_info}]\n\nUser message: {message}"
+            enhanced_message = f"{system_prompt}\n\n[EXAM CONTEXT: {context_info}]\n\nUser message: {message}"
             return enhanced_message
         
-        return message
+        return f"{system_prompt}\n\nUser message: {message}"
     
     def _format_response_for_whatsapp(self, response: str) -> str:
         """
-        Format the agent response for WhatsApp delivery
+        Format the agent response for WhatsApp delivery with 50-word limit
         """
         # Remove excessive formatting that doesn't work well in WhatsApp
         formatted = response.strip()
         
-        # Limit response length for WhatsApp (max ~1600 characters)
-        max_length = 1500
-        if len(formatted) > max_length:
-            formatted = formatted[:max_length] + "...\n\n(Response truncated. Ask me to continue for more details.)"
-        
         # Clean up any problematic characters or formatting
         formatted = formatted.replace('```', '').replace('**', '*')
         
+        # Enforce 50-word limit
+        formatted = self._enforce_word_limit(formatted, 50)
+        
         return formatted
+    
+    def _enforce_word_limit(self, text: str, max_words: int) -> str:
+        """
+        Enforce word limit on response text
+        """
+        words = text.split()
+        word_count = len(words)
+        
+        if word_count <= max_words:
+            return text
+        
+        # Truncate to word limit and add indicator
+        truncated_words = words[:max_words-2]  # Save space for "..."
+        truncated_text = ' '.join(truncated_words) + "..."
+        
+        logger.info(f"Response truncated from {word_count} to {len(truncated_words)} words")
+        return truncated_text
+    
+    def _count_words(self, text: str) -> int:
+        """
+        Count words in text (excluding emojis)
+        """
+        # Remove emojis and special characters for accurate word count
+        import re
+        clean_text = re.sub(r'[^\w\s]', ' ', text)
+        words = clean_text.split()
+        return len(words)
     
     def is_exam_related_query(self, message: str) -> bool:
         """

@@ -43,10 +43,10 @@ class HybridMessageHandler(ABC):
             }
     
     async def _handle_with_llm(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle using LLM agent"""
+        """Handle using LLM agent with enhanced context for greetings and queries"""
         logger.info(f"Using LLM agent for {user_phone}")
         
-        # Create context for the LLM
+        # Enhanced context for better LLM responses
         context = {
             'exam': user_state.get('exam'),
             'subject': user_state.get('subject'),
@@ -54,10 +54,16 @@ class HybridMessageHandler(ABC):
             'current_question_index': user_state.get('current_question_index'),
             'total_questions': user_state.get('total_questions'),
             'score': user_state.get('score'),
-            'stage': user_state.get('stage')
+            'stage': user_state.get('stage'),
+            # Enhanced context for greetings and general queries
+            'bot_role': 'friendly and helpful exam practice assistant',
+            'available_exams': ['JAMB', 'SAT', 'NEET'],
+            'is_greeting': self._is_likely_greeting(message),
+            'user_stage': user_state.get('stage', 'initial'),
+            'greeting_context': self._get_greeting_context(user_state)
         }
         
-        # Get LLM response
+        # Get LLM response with enhanced context
         response = await self.llm_agent.process_message(user_phone, message, context)
         
         return {
@@ -65,6 +71,30 @@ class HybridMessageHandler(ABC):
             'state_updates': {},  # LLM doesn't modify state directly
             'next_handler': None
         }
+    
+    def _is_likely_greeting(self, message: str) -> bool:
+        """Check if message is likely a greeting for enhanced LLM context"""
+        greeting_indicators = [
+            'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
+            'hola', 'sup', 'yo', 'greetings', 'howdy', 'wassup', 'whatsup',
+            'how are you', 'nice to meet', 'pleasure', 'glad to', 'happy to'
+        ]
+        message_lower = message.lower()
+        return any(indicator in message_lower for indicator in greeting_indicators)
+    
+    def _get_greeting_context(self, user_state: Dict[str, Any]) -> str:
+        """Get contextual information for greeting responses"""
+        stage = user_state.get('stage', 'initial')
+        
+        if stage == 'initial':
+            return "New user - encourage them to start practicing"
+        elif stage == 'selecting_exam':
+            return "User is selecting an exam - help them choose"
+        elif user_state.get('exam'):
+            exam = user_state.get('exam', '').upper()
+            return f"User is practicing for {exam} - provide supportive encouragement"
+        else:
+            return "Provide general exam practice encouragement"
     
     @abstractmethod
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
@@ -81,14 +111,15 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
         return command in ['start', 'restart', 'exit', 'help'] or self._is_general_query(message)
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Use LLM for general queries, structured logic for specific commands"""
+        """Use LLM for greetings and general queries, structured logic only for specific commands"""
         command = message.lower().strip()
         specific_commands = ['start', 'restart', 'exit']
         
+        # Only use structured logic for critical bot commands
         if command in specific_commands:
             return False
         
-        # Use LLM for help requests and general queries
+        # Use LLM for everything else including greetings and general queries
         return True
     
     def _is_general_query(self, message: str) -> bool:
@@ -97,11 +128,24 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
             'help', 'how', 'what', 'why', 'when', 'where', 'explain',
             'tell me', 'can you', 'do you', 'about', 'info'
         ]
-        message_lower = message.lower()
+        
+        # Simple greetings and common messages
+        simple_greetings = [
+            'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
+            'hola', 'sup', 'yo', 'greetings', 'howdy', 'wassup', 'whatsup'
+        ]
+        
+        message_lower = message.lower().strip()
+        
+        # Check for exact matches with simple greetings
+        if message_lower in simple_greetings:
+            return True
+            
+        # Check for general keywords
         return any(keyword in message_lower for keyword in general_keywords)
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle specific commands with structured logic"""
+        """Handle only critical bot commands with structured logic"""
         command = message.lower().strip()
         
         if command in ['start', 'restart']:
@@ -109,7 +153,54 @@ class SmartGlobalCommandHandler(HybridMessageHandler):
         elif command == 'exit':
             return self._handle_exit(user_phone)
         
-        return {'response': 'Unknown command', 'state_updates': {}, 'next_handler': None}
+        # If it reaches here, it's not a critical command - provide fallback
+        return {
+            'response': "I didn't recognize that command. Send 'start' to begin practicing or 'help' for assistance.",
+            'state_updates': {},
+            'next_handler': None
+        }
+    
+    def _is_simple_greeting(self, message: str) -> bool:
+        """Check if message is a simple greeting"""
+        simple_greetings = [
+            'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
+            'hola', 'sup', 'yo', 'greetings', 'howdy', 'wassup', 'whatsup'
+        ]
+        return message.lower().strip() in simple_greetings
+    
+    def _handle_greeting(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle simple greetings with friendly structured responses"""
+        import random
+        
+        # Get current stage to provide contextual response
+        current_stage = user_state.get('stage', 'initial')
+        
+        # Friendly greeting responses
+        greetings = [
+            "Hello! 👋",
+            "Hi there! 😊", 
+            "Hey! Good to see you!",
+            "Hello! Welcome back! 🎓"
+        ]
+        
+        base_greeting = random.choice(greetings)
+        
+        # Add contextual information based on current stage
+        if current_stage == 'initial':
+            response = f"{base_greeting} I'm your Exam Practice Bot! Send 'start' to begin practicing for JAMB, SAT, or NEET exams."
+        elif current_stage == 'selecting_exam':
+            response = f"{base_greeting} You're currently selecting an exam. Please choose a number from the list above, or send 'restart' to start over."
+        elif user_state.get('exam'):
+            exam_name = user_state.get('exam', '').upper()
+            response = f"{base_greeting} You're practicing for {exam_name}. How can I help you today? Send 'restart' to start a new session."
+        else:
+            response = f"{base_greeting} I'm here to help you practice for exams! Send 'start' to begin or 'help' for available commands."
+        
+        return {
+            'response': response,
+            'state_updates': {},
+            'next_handler': None
+        }
     
     def _handle_start(self, user_phone: str) -> Dict[str, Any]:
         """Handle start/restart command"""
@@ -330,29 +421,72 @@ class SmartExamTypeHandler(HybridMessageHandler):
 
 class SmartFallbackHandler(HybridMessageHandler):
     """
-    Enhanced fallback handler that always uses LLM for unrecognized inputs
+    Enhanced fallback handler with improved error handling
     """
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
         return True  # Always can handle as fallback
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        return True  # Always use LLM for fallback
+        # Try LLM for complex queries, but have structured fallback ready
+        return len(message.strip()) > 5  # Use LLM for longer messages only
+    
+    async def handle(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Enhanced handle method with better error recovery
+        """
+        try:
+            if self.should_use_llm(message, user_state):
+                # Try LLM first
+                try:
+                    return await self._handle_with_llm(user_phone, message, user_state)
+                except Exception as e:
+                    logger.warning(f"LLM failed for fallback handler, using structured logic: {str(e)}")
+                    # If LLM fails, fall back to structured logic
+                    return self._handle_with_logic(user_phone, message, user_state)
+            else:
+                return self._handle_with_logic(user_phone, message, user_state)
+        except Exception as e:
+            logger.error(f"Error in enhanced fallback handler: {str(e)}", exc_info=True)
+            return self._handle_with_logic(user_phone, message, user_state)
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """This shouldn't be called since we always use LLM"""
-        stage = user_state.get('stage', 'unknown')
-        logger.warning(f"Fallback logic handler triggered for {user_phone} in stage {stage}")
+        """Provide helpful structured responses when LLM fails or for simple messages"""
+        stage = user_state.get('stage', 'initial')
+        logger.info(f"Enhanced fallback logic handler for {user_phone} in stage {stage}")
         
+        # Check if it looks like a simple greeting that got missed
+        message_lower = message.lower().strip()
+        if any(greeting in message_lower for greeting in ['hello', 'hi', 'hey', 'good', 'morning', 'afternoon', 'evening']):
+            return {
+                'response': "Hello! 👋 I'm your Exam Practice Bot. Send 'start' to begin practicing for JAMB, SAT, or NEET exams!",
+                'state_updates': {},
+                'next_handler': None
+            }
+        
+        # Provide contextual help based on current stage
         if stage == 'initial':
             return {
-                'response': "Welcome! Send 'start' to begin practicing exams.",
+                'response': "Welcome! 🎓 I'm here to help you practice for exams.\n\nSend 'start' to begin practicing for JAMB, SAT, or NEET exams!",
+                'state_updates': {},
+                'next_handler': None
+            }
+        elif stage == 'selecting_exam':
+            return {
+                'response': "Please select an exam by sending the number (1, 2, or 3) from the list above.\n\nOr send 'restart' to start over.",
+                'state_updates': {},
+                'next_handler': None
+            }
+        elif user_state.get('exam'):
+            exam_name = user_state.get('exam', '').upper()
+            return {
+                'response': f"I didn't understand that. You're currently practicing for {exam_name}.\n\nSend 'restart' to start over or follow the instructions above.",
                 'state_updates': {},
                 'next_handler': None
             }
         else:
             return {
-                'response': "I didn't understand that. Send 'help' for available commands or 'restart' to start over.",
+                'response': "I didn't understand that. 🤔\n\nAvailable commands:\n• 'start' - Begin exam practice\n• 'restart' - Start over\n• 'exit' - End session",
                 'state_updates': {},
                 'next_handler': None
             }
