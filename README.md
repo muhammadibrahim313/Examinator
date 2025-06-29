@@ -1,4 +1,4 @@
-# WhatsApp Exam Practice Bot( bolt new hack)
+# WhatsApp Exam Practice Bot( bolt.new hackathon)
 
 A WhatsApp chatbot that helps students practice for computer-based exams like JAMB, WAEC, etc.
 
