@@ -1,18 +1,13 @@
 from typing import Dict, Any, List
 from app.services.exam_types.base import BaseExamType
-from app.services.question_fetcher import QuestionFetcher
-import logging
-
-logger = logging.getLogger(__name__)
 
 class NEETExamType(BaseExamType):
     """
-    NEET exam type with real past questions
+    NEET exam type implementation (fallback)
     """
     
     def __init__(self):
         super().__init__("NEET")
-        self.question_fetcher = QuestionFetcher()
     
     def get_flow_stages(self) -> List[str]:
         return ['selecting_subject', 'taking_exam']
@@ -33,89 +28,47 @@ class NEETExamType(BaseExamType):
             }
     
     def validate_stage_input(self, stage: str, message: str, user_state: Dict[str, Any]) -> bool:
-        if stage == 'selecting_subject':
-            subjects = self.question_fetcher.get_available_subjects('neet')
-            return self.parse_choice(message, subjects) is not None
-        elif stage == 'taking_exam':
-            return message.strip().lower() in ['a', 'b', 'c', 'd']
-        return False
+        return True
     
     def get_available_options(self, stage: str, user_state: Dict[str, Any]) -> List[str]:
         if stage == 'selecting_subject':
-            return self.question_fetcher.get_available_subjects('neet')
-        elif stage == 'taking_exam':
-            return ['A', 'B', 'C', 'D']
+            return ['Physics', 'Chemistry', 'Biology', 'Botany', 'Zoology']
         return []
     
     def _handle_subject_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        subjects = self.question_fetcher.get_available_subjects('neet')
-        
-        if not subjects:
-            return {
-                'response': "Sorry, no subjects available for NEET. Please contact support.",
-                'next_stage': 'selecting_subject',
-                'state_updates': {}
-            }
-        
-        selected_subject = self.parse_choice(message, subjects)
-        
-        if selected_subject:
-            num_questions = self.question_fetcher.get_questions_per_exam('neet', selected_subject)
-            
-            return {
-                'response': f"✅ You selected: {selected_subject}\n\n🔍 Fetching {num_questions} real NEET past questions...\n\nThis may take a moment as we search for authentic past questions.",
-                'next_stage': 'loading_questions',
-                'state_updates': {
-                    'subject': selected_subject,
-                    'stage': 'loading_questions',
-                    'questions_needed': num_questions
-                }
-            }
-        else:
-            return {
-                'response': f"Invalid choice. Please select a number between 1 and {len(subjects)}.\n\n" + 
-                           self.format_options_list(subjects, "Available NEET subjects"),
-                'next_stage': 'selecting_subject',
-                'state_updates': {}
-            }
-    
-    async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        subject = user_state.get('subject')
-        num_questions = user_state.get('questions_needed', 50)
+        subjects = ['Physics', 'Chemistry', 'Biology', 'Botany', 'Zoology']
         
         try:
-            questions = await self.question_fetcher.fetch_questions('neet', subject, num_questions)
-            
-            if not questions:
+            choice = int(message.strip()) - 1
+            if 0 <= choice < len(subjects):
+                selected_subject = subjects[choice]
+                
+                questions = self._generate_sample_questions(selected_subject)
+                first_question = self._format_question(questions[0], 1, len(questions))
+                
                 return {
-                    'response': f"Sorry, could not fetch questions for {subject}. Please try again.",
+                    'response': f"🎯 Starting NEET {selected_subject} Practice\n\n{first_question}",
+                    'next_stage': 'taking_exam',
+                    'state_updates': {
+                        'subject': selected_subject,
+                        'stage': 'taking_exam',
+                        'questions': questions,
+                        'total_questions': len(questions),
+                        'current_question_index': 0,
+                        'score': 0
+                    }
+                }
+            else:
+                return {
+                    'response': f"Invalid choice. Please select 1-{len(subjects)}.",
                     'next_stage': 'selecting_subject',
-                    'state_updates': {'stage': 'selecting_subject'}
+                    'state_updates': {}
                 }
-            
-            first_question = self._format_question(questions[0], 1, len(questions))
-            intro = f"🎯 Starting NEET {subject} Practice\n"
-            intro += f"📚 {len(questions)} real past questions\n"
-            intro += f"⏱️ Standard NEET format\n\n"
-            
+        except ValueError:
             return {
-                'response': intro + first_question,
-                'next_stage': 'taking_exam',
-                'state_updates': {
-                    'stage': 'taking_exam',
-                    'questions': questions,
-                    'total_questions': len(questions),
-                    'current_question_index': 0,
-                    'score': 0
-                }
-            }
-            
-        except Exception as e:
-            logger.error(f"Error loading NEET questions: {e}")
-            return {
-                'response': f"Sorry, there was an error loading questions. Please try again.",
+                'response': f"Please enter a number 1-{len(subjects)}.",
                 'next_stage': 'selecting_subject',
-                'state_updates': {'stage': 'selecting_subject'}
+                'state_updates': {}
             }
     
     def _handle_answer(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
@@ -145,18 +98,11 @@ class NEETExamType(BaseExamType):
         new_score = user_state.get('score', 0) + (1 if is_correct else 0)
         next_index = current_index + 1
         
-        year = current_question.get('year', 'Unknown')
-        explanation = current_question.get('explanation', 'No explanation available.')
-        
         response = f"{'✅ Correct!' if is_correct else '❌ Wrong!'} Answer: {correct_answer.upper()}\n\n"
-        response += f"📅 Source: NEET {year}\n"
-        response += f"💡 {explanation}\n\n"
         
         if next_index >= len(questions):
             percentage = (new_score / len(questions)) * 100
-            response += f"🎉 NEET {user_state.get('subject')} Complete!\n"
-            response += f"📈 Score: {new_score}/{len(questions)} ({percentage:.1f}%)\n\n"
-            response += "Send 'start' to practice another subject."
+            response += f"🎉 NEET Practice Complete!\nScore: {new_score}/{len(questions)} ({percentage:.1f}%)\n\nSend 'start' for another session."
             
             return {
                 'response': response,
@@ -176,12 +122,31 @@ class NEETExamType(BaseExamType):
                 }
             }
     
+    def _generate_sample_questions(self, subject: str) -> List[Dict[str, Any]]:
+        """Generate sample questions"""
+        return [
+            {
+                "id": 1,
+                "question": f"Sample {subject} question for NEET",
+                "options": {"A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D"},
+                "correct_answer": "B",
+                "explanation": f"This is a sample {subject} question for NEET."
+            },
+            {
+                "id": 2,
+                "question": f"Another {subject} question for NEET",
+                "options": {"A": "Choice A", "B": "Choice B", "C": "Choice C", "D": "Choice D"},
+                "correct_answer": "A",
+                "explanation": f"Another sample {subject} question for NEET."
+            }
+        ]
+    
     def _format_question(self, question: Dict[str, Any], question_num: int, total_questions: int) -> str:
+        """Format a question for display"""
         question_text = question.get('question', 'No question text available')
         options = question.get('options', {})
-        year = question.get('year', 'Unknown')
         
-        formatted = f"Question {question_num}/{total_questions} (NEET {year}):\n{question_text}\n\n"
+        formatted = f"Question {question_num}/{total_questions}:\n{question_text}\n\n"
         
         for key in ['A', 'B', 'C', 'D']:
             if key in options:
