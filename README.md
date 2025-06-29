@@ -1,253 +1,306 @@
-# WhatsApp Exam Practice Bot with LLM Agent Integration
+# Examinator - Topic-Based WhatsApp Exam Practice Bot
 
-A WhatsApp chatbot that helps students practice for computer-based exams like JAMB, WAEC, etc. Now enhanced with LLM agent capabilities for intelligent conversations and explanations.
+A revolutionary WhatsApp chatbot that helps students practice for computer-based exams using **real past questions** organized by **topics**. Students can practice specific topics or get mixed questions from multiple years without having to select specific years.
 
-## Features
+## 🎯 Key Features
 
-- **Intelligent Conversations**: LLM-powered responses for natural interactions
-- **Hybrid Processing**: Combines structured bot logic with AI agent capabilities
-- **Interactive Exam Practice**: Multiple exam types (JAMB, SAT, etc.)
-- **Smart Explanations**: AI-generated explanations and study tips
-- **Context-Aware Responses**: Agent understands exam context and progress
-- **Web Search Integration**: Real-time information retrieval for questions
-- **Multiple Subjects**: Biology, Chemistry, Physics, Math, English, etc.
-- **Question Randomization**: Varied practice sessions
-- **Score Tracking**: Performance monitoring
-- **Image Support**: Visual questions when available
+### Topic-Based Practice System
+- **Practice by Topic**: Choose specific topics like "Cell Biology" or "Algebra"
+- **Mixed Practice**: Get questions from all topics in a subject
+- **Weak Areas Focus**: AI identifies and focuses on your weak areas
+- **Multi-Year Questions**: Questions automatically sourced from multiple years (2015-2024)
+- **No Year Selection Required**: Students focus on topics, not years
 
-## New LLM Agent Features
+### Real Past Questions
+- **Authentic Questions**: Real past questions from official exam bodies
+- **Multiple Years**: Questions automatically sourced from 2015-2024
+- **Topic References**: Each question shows its topic and source year
+- **Standard Format**: Proper exam format with correct number of questions
 
-- **Natural Language Processing**: Understands complex questions and provides detailed explanations
-- **Context-Aware Responses**: Knows your current exam, subject, and progress
-- **Smart Help System**: Provides study tips and learning strategies
-- **Web Search Integration**: Can search for current information when needed
-- **Conversational Interface**: Ask questions naturally instead of using rigid commands
+### Supported Exams & Subjects
 
-## Quick Start
+#### JAMB (Joint Admissions and Matriculation Board)
+**All 12 subjects with topic-based practice:**
+- **Mathematics**: Algebra, Geometry, Trigonometry, Calculus, Statistics, etc.
+- **English Language**: Comprehension, Grammar, Vocabulary, Writing Skills, etc.
+- **Biology**: Cell Biology, Genetics, Evolution, Ecology, Physiology, etc.
+- **Chemistry**: Atomic Structure, Chemical Bonding, Organic Chemistry, etc.
+- **Physics**: Mechanics, Electricity, Waves, Thermodynamics, etc.
+- **Geography**: Physical Geography, Human Geography, Map Reading, etc.
+- **Economics**: Basic Concepts, Market Structure, National Income, etc.
+- **Government**: Political Theory, Constitutional Development, etc.
+- **Literature**: Poetry, Prose, Drama, Literary Devices, etc.
+- **History**: Nigerian History, African History, World History, etc.
+- **Agricultural Science**: Crop Production, Animal Production, Soil Science, etc.
+- **Computer Studies**: Fundamentals, Programming, Networks, etc.
 
-### 1. Environment Setup
-Create a `.env` file with your API keys:
-```bash
-# Copy the example file
-cp .env.example .env
+#### SAT & NEET
+- Similar topic-based structure for all subjects
 
-# Edit with your actual API keys
-GOOGLE_API_KEY=your_google_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
+## 🚀 How Topic-Based Practice Works
+
+### 1. **Choose Subject, Then Practice Type**
+```
+User: start
+Bot: Choose exam: 1. JAMB 2. SAT 3. NEET
+
+User: 1
+Bot: Choose subject: 1. Mathematics 2. Biology 3. Chemistry...
+
+User: 2 (Biology)
+Bot: 📚 Choose your practice type:
+
+1. Cell Biology and Organization
+2. Genetics and Heredity
+3. Evolution and Ecology
+4. Plant Biology and Physiology
+5. Animal Biology and Physiology
+6. Human Biology and Health
+7. Reproduction and Development
+8. Classification of Living Things
+9. Biochemistry and Metabolism
+10. Environmental Biology
+11. Mixed Practice (All Topics)
+12. Weak Areas Focus
+
+Please reply with the number of your choice.
 ```
 
-### 2. Setup and Start Server
+### 2. **Topic-Specific Practice**
+```
+User: 1 (Cell Biology)
+Bot: ✅ You selected: Cell Biology and Organization
+
+🔍 Fetching 20 real JAMB past questions...
+📚 Practice questions on Cell Biology and Organization
+⏱️ Questions from multiple years (2015-2024)
+
+🎯 Starting JAMB Biology Practice
+📚 Topic: Cell Biology and Organization
+📊 20 real past questions from multiple years
+
+Question 1/20 (JAMB 2023 - Cell Biology):
+Which organelle is known as the powerhouse of the cell?
+A. Nucleus
+B. Ribosome
+C. Mitochondria
+D. Endoplasmic reticulum
+
+Reply with A, B, C, or D
+```
+
+### 3. **Mixed Practice**
+```
+User: 11 (Mixed Practice)
+Bot: ✅ You selected: Mixed Practice (All Topics)
+
+🔍 Fetching 30 real JAMB past questions...
+📚 Mixed practice covering all Biology topics
+⏱️ Questions from multiple years (2015-2024)
+
+[Questions from various topics: Cell Biology, Genetics, Ecology, etc.]
+```
+
+### 4. **Weak Areas Focus**
+```
+User: 12 (Weak Areas Focus)
+Bot: ✅ You selected: Weak Areas Focus
+
+🔍 Fetching 25 real JAMB past questions...
+📚 Focus on your weak areas in Biology
+⏱️ Questions from multiple years
+
+[AI selects questions from topics where user has struggled]
+```
+
+## 🎯 Benefits of Topic-Based Practice
+
+### For Students
+- **Targeted Learning**: Focus on specific topics you need to improve
+- **Flexible Practice**: No need to choose specific years
+- **Comprehensive Coverage**: Questions from multiple years ensure variety
+- **Weakness Identification**: AI tracks which topics you struggle with
+- **Efficient Study**: Practice exactly what you need
+
+### For Exam Preparation
+- **Real Questions**: Authentic past questions maintain exam authenticity
+- **Topic Mastery**: Master one topic at a time or practice everything
+- **Performance Tracking**: See your progress in each topic
+- **Adaptive Learning**: System focuses on your weak areas
+
+## 🛠️ Quick Start
+
+### 1. Environment Setup
 ```bash
-# This will create venv, install dependencies, and start the server
+cp .env.example .env
+# Add your API keys to .env file
+```
+
+### 2. Install and Start
+```bash
 python start_server.py
 ```
 
-### 3. Setup ngrok (Required for WhatsApp)
+### 3. Setup ngrok for WhatsApp
 ```bash
-# In a separate terminal
 python setup_ngrok.py
 ```
 
 ### 4. Configure Twilio WhatsApp
-1. Go to [Twilio Console](https://console.twilio.com/)
-2. Navigate to WhatsApp Sandbox
-3. Set your webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
-4. Save the configuration
+Set webhook URL to: `https://your-ngrok-url.ngrok.io/webhook/whatsapp`
 
-### 5. Test Your Enhanced Bot
-1. Send a WhatsApp message to your Twilio sandbox number
-2. Try natural language: "Help me practice JAMB Biology"
-3. Ask questions: "Explain photosynthesis" or "What is the powerhouse of the cell?"
-4. Use traditional commands: "start", "restart", "exit"
+## 📊 Example User Experience
 
-## API Keys Required
-
-### Google AI API Key (Required)
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Add it to your `.env` file as `GOOGLE_API_KEY`
-
-### Tavily Search API Key (Optional)
-1. Go to [Tavily](https://tavily.com/)
-2. Sign up and get your API key
-3. Add it to your `.env` file as `TAVILY_API_KEY`
-4. This enables web search for current information
-
-## How the LLM Integration Works
-
-### Hybrid Message Processing
-The bot now uses a hybrid approach:
-
-1. **Structured Logic**: For specific commands and exam navigation
-   - "start", "restart", "exit"
-   - Number selections (1, 2, 3)
-   - Answer choices (A, B, C, D)
-
-2. **LLM Agent**: For natural language interactions
-   - Questions about topics
-   - Requests for explanations
-   - Study help and tips
-   - General conversations
-
-### Context Awareness
-The LLM agent receives context about:
-- Current exam type (JAMB, SAT, etc.)
-- Subject being studied
-- Current question and progress
-- User's score and performance
-
-### Example Interactions
-
-**Traditional Structured Approach:**
+### Topic Selection Flow
 ```
 User: start
-Bot: Welcome! Choose exam: 1. JAMB 2. SAT
+Bot: 🎓 Welcome to Examinator!
+
+Available exams:
+1. JAMB
+2. SAT
+3. NEET
+
 User: 1
-Bot: Choose subject: 1. Biology 2. Chemistry
+Bot: ✅ You selected: JAMB
+
+Available JAMB subjects:
+1. Mathematics
+2. English Language
+3. Biology
+[... all 12 subjects]
+
+User: 3
+Bot: ✅ You selected: Biology
+
+📚 Choose your practice type:
+1. Cell Biology and Organization
+2. Genetics and Heredity
+3. Evolution and Ecology
+[... all Biology topics]
+11. Mixed Practice (All Topics)
+12. Weak Areas Focus
 ```
 
-**New LLM-Enhanced Approach:**
+### Practice Session
 ```
-User: I want to practice biology for JAMB
-Bot: Great! I'll help you practice JAMB Biology. Let me set up some questions for you...
+User: 2 (Genetics)
+Bot: 🎯 Starting JAMB Biology Practice
+     📚 Topic: Genetics and Heredity
+     📊 20 real past questions from multiple years
 
-User: What is photosynthesis?
-Bot: Photosynthesis is the process by which plants convert light energy into chemical energy (glucose). It occurs in chloroplasts and involves two main stages: light-dependent reactions and the Calvin cycle...
+     Question 1/20 (JAMB 2022 - Genetics):
+     What is the basic unit of heredity?
+     A. Chromosome
+     B. Gene
+     C. DNA
+     D. RNA
 
-User: Can you explain the answer to question 5?
-Bot: [Provides detailed explanation with study tips based on the specific question]
-```
+User: B
+Bot: ✅ Correct! The correct answer is B.
 
-## Project Structure
+     📅 Source: JAMB 2022
+     📚 Topic: Genetics and Heredity
+     💡 A gene is the basic unit of heredity that carries genetic information...
+     
+     📊 Progress: 1/1 correct (100.0%)
 
-```
-whatsapp-bot/
-├── venv/                           # Virtual environment
-├── app/
-│   ├── agent_reflection/           # LLM agent implementation
-│   │   ├── RAG_reflection.py      # Main agent with search capabilities
-│   │   └── requirements.txt       # Agent-specific dependencies
-│   ├── core/
-│   │   ├── hybrid_message_handler.py    # Hybrid handlers with LLM
-│   │   ├── smart_message_processor.py   # Enhanced message processor
-│   │   ├── message_handler.py           # Original handlers (legacy)
-│   │   └── message_processor.py         # Original processor (legacy)
-│   ├── services/
-│   │   ├── llm_agent.py               # LLM agent service
-│   │   ├── exam_context_enhancer.py   # Context enhancement for LLM
-│   │   ├── state.py                   # State management
-│   │   └── exam_registry.py           # Exam type registry
-│   ├── data/                       # Exam question data
-│   ├── routes/                     # API routes (enhanced)
-│   └── utils/                      # Helper functions
-├── .env                           # Environment variables (create this)
-├── .env.example                   # Environment template
-├── main.py                        # FastAPI application
-├── requirements.txt               # All dependencies
-└── README.md                      # This file
+     Question 2/20 (JAMB 2019 - Genetics):
+     [Next genetics question...]
 ```
 
-## Commands and Interactions
+## 🔧 Technical Architecture
 
-### Traditional Commands (Still Work)
-- `start` - Begin a new exam session
-- `restart` - Restart current session  
-- `exit` - End current session
-- `help` - Get help information
-
-### New Natural Language Interactions
-- "Help me practice JAMB Biology"
-- "Explain photosynthesis"
-- "What's the answer to this question?"
-- "Give me study tips for chemistry"
-- "How do I solve this math problem?"
-- "Tell me about cell structure"
-
-### Exam Navigation
-- Number selections: "1", "2", "3" (for choosing exams/subjects)
-- Answer choices: "A", "B", "C", "D" (for answering questions)
-- Natural requests: "I want to practice biology" or "Show me chemistry questions"
-
-## Development
-
-### Environment Management
-The `start_server.py` script automatically:
-- Creates a virtual environment if it doesn't exist
-- Installs/updates all dependencies (including LLM agent requirements)
-- Starts the server with auto-reload
-
-### Manual Development Setup
-```bash
-# Activate virtual environment
-source venv/bin/activate  # On macOS/Linux
-# or
-venv\Scripts\activate     # On Windows
-
-# Install all dependencies (includes LLM agent requirements)
-pip install -r requirements.txt
-
-# Run server with auto-reload
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+### Topic-Based Question Fetching
+```python
+# app/services/topic_based_question_fetcher.py
+class TopicBasedQuestionFetcher:
+    async def fetch_questions_by_topic(self, exam: str, subject: str, topic: str, num_questions: int):
+        # Fetches real questions for specific topic from multiple years
+        # Uses AI to search and extract authentic past questions
+        # Returns structured questions with topic and year references
 ```
 
-### Testing LLM Features
-1. Make sure your `.env` file has the required API keys
-2. Start the server: `python start_server.py`
-3. Test with natural language messages via WhatsApp
-4. Check logs for LLM agent activity
+### Enhanced Exam Flow
+```python
+# app/services/exam_types/topic_based_jamb.py
+class TopicBasedJAMBExamType:
+    def get_flow_stages(self) -> List[str]:
+        return ['selecting_subject', 'selecting_practice_type', 'taking_exam']
+    
+    # Handles topic selection and question fetching
+```
 
-## Troubleshooting
+### Topic Structure
+```json
+// app/data/topic_structure.json
+{
+  "jamb": {
+    "Biology": {
+      "topics": [
+        "Cell Biology and Organization",
+        "Genetics and Heredity",
+        "Evolution and Ecology",
+        // ... all Biology topics
+      ]
+    }
+  }
+}
+```
 
-### LLM Agent Issues
+## 📈 Performance Tracking
 
-1. **"LLM agent may not function properly" warning**
-   - Check that `GOOGLE_API_KEY` is set in your `.env` file
-   - Verify the API key is valid and has quota
+### Enhanced Analytics
+- **Topic-Level Performance**: Track performance in each topic
+- **Multi-Year Analysis**: See how you perform on questions from different years
+- **Weakness Identification**: AI identifies topics you struggle with
+- **Progress Monitoring**: Track improvement over time
 
-2. **Agent responses are slow**
-   - This is normal for LLM processing
-   - Web search queries take additional time
-   - Consider upgrading to faster models if needed
+### Performance Reports
+```
+User: How am I doing?
+Bot: 📊 Your Performance Summary:
 
-3. **Agent not responding**
-   - Check server logs for error messages
-   - Verify internet connection for API calls
-   - Ensure all dependencies are installed
+🎯 Topic Performance:
+• Cell Biology: 85% (20 questions answered)
+• Genetics: 72% (15 questions answered)
+• Ecology: 90% (10 questions answered)
 
-### Traditional Issues
+📚 Recent Practice:
+• JAMB Biology - Genetics: 80% (from multiple years)
+• JAMB Chemistry - Bonding: 65% (needs improvement)
 
-4. **Virtual environment issues**
-   - Delete the `venv` folder and run `python start_server.py` again
-   - Make sure Python 3.7+ is installed
+💪 Recommendations:
+• Focus more on Genetics concepts
+• Practice Chemical Bonding questions
+• Review Cell Biology fundamentals
+```
 
-5. **ngrok tunnel not working**
-   - Make sure you've added your authtoken
-   - Check if port 8000 is available
-   - Restart ngrok if needed
+## 🚀 Future Enhancements
 
-6. **WhatsApp messages not received**
-   - Verify webhook URL in Twilio console
-   - Check ngrok tunnel is active
-   - Ensure server is running on port 8000
+### Advanced Topic Features
+- **Subtopic Breakdown**: Further divide topics into subtopics
+- **Difficulty Levels**: Easy, Medium, Hard questions within topics
+- **Topic Dependencies**: Understand prerequisite topics
+- **Mastery Tracking**: Track when you've mastered a topic
 
-### Logs and Debugging
+### Smart Recommendations
+- **Study Path**: AI suggests optimal topic sequence
+- **Time Allocation**: Recommend time to spend on each topic
+- **Review Schedule**: Spaced repetition for topic review
 
-The enhanced bot provides detailed logging:
-- LLM agent processing steps
-- Hybrid handler decisions (LLM vs structured logic)
-- Context enhancement information
-- Traditional bot state changes
-- API call results and errors
+## 📞 Support
 
-## API Endpoints
+For issues or questions:
+1. Ensure all API keys are configured in `.env`
+2. Verify ngrok tunnel is active
+3. Check server logs for errors
+4. Test with simple commands like "start"
 
-- `GET /` - Root endpoint
-- `GET /health` - Health check
-- `POST /webhook/whatsapp` - Enhanced WhatsApp webhook with LLM
-- `GET /webhook/whatsapp` - Webhook verification
-
-## License
+## 📄 License
 
 This project is open source and available under the MIT License.
+
+---
+
+**Examinator** - Master topics, not years! Practice with real past questions organized by topics. 🎓📚

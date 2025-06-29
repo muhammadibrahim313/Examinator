@@ -1,0 +1,316 @@
+{
+  "jamb": {
+    "Biology": {
+      "topics": [
+        "Cell Biology and Organization",
+        "Genetics and Heredity", 
+        "Evolution and Ecology",
+        "Plant Biology and Physiology",
+        "Animal Biology and Physiology",
+        "Human Biology and Health",
+        "Reproduction and Development",
+        "Classification of Living Things",
+        "Biochemistry and Metabolism",
+        "Environmental Biology"
+      ]
+    },
+    "Chemistry": {
+      "topics": [
+        "Atomic Structure and Bonding",
+        "Chemical Reactions and Equations",
+        "Acids, Bases and Salts",
+        "Organic Chemistry",
+        "Physical Chemistry and Thermodynamics",
+        "Electrochemistry",
+        "Chemical Kinetics",
+        "Periodic Table and Properties",
+        "Stoichiometry and Calculations",
+        "Industrial Chemistry"
+      ]
+    },
+    "Physics": {
+      "topics": [
+        "Mechanics and Motion",
+        "Waves and Sound",
+        "Light and Optics",
+        "Electricity and Magnetism",
+        "Heat and Thermodynamics",
+        "Modern Physics",
+        "Nuclear Physics",
+        "Electronics",
+        "Fields and Forces",
+        "Energy and Power"
+      ]
+    },
+    "Mathematics": {
+      "topics": [
+        "Algebra and Equations",
+        "Geometry and Mensuration",
+        "Trigonometry",
+        "Calculus and Differentiation",
+        "Statistics and Probability",
+        "Number Theory",
+        "Coordinate Geometry",
+        "Sequences and Series",
+        "Logarithms and Indices",
+        "Mathematical Logic"
+      ]
+    },
+    "English Language": {
+      "topics": [
+        "Comprehension and Summary",
+        "Grammar and Usage",
+        "Vocabulary and Word Formation",
+        "Sentence Structure",
+        "Figures of Speech",
+        "Reading Skills",
+        "Writing Skills",
+        "Oral English",
+        "Literature Appreciation",
+        "Language Functions"
+      ]
+    },
+    "Geography": {
+      "topics": [
+        "Physical Geography",
+        "Human Geography",
+        "Economic Geography",
+        "Regional Geography of Nigeria",
+        "Regional Geography of Africa",
+        "World Geography",
+        "Map Reading and Interpretation",
+        "Climate and Weather",
+        "Landforms and Processes",
+        "Population and Settlement"
+      ]
+    },
+    "Economics": {
+      "topics": [
+        "Basic Economic Concepts",
+        "Theory of Consumer Behavior",
+        "Theory of Production",
+        "Market Structure",
+        "National Income",
+        "Money and Banking",
+        "Public Finance",
+        "International Trade",
+        "Economic Development",
+        "Economic Systems"
+      ]
+    },
+    "Government": {
+      "topics": [
+        "Political Theory",
+        "Constitutional Development",
+        "Organs of Government",
+        "Electoral Systems",
+        "Political Parties",
+        "Public Administration",
+        "International Relations",
+        "Comparative Government",
+        "Nigerian Government",
+        "Political Behavior"
+      ]
+    },
+    "Literature in English": {
+      "topics": [
+        "Poetry Analysis",
+        "Prose and Fiction",
+        "Drama and Theatre",
+        "Literary Devices",
+        "African Literature",
+        "English Literature",
+        "Literary Criticism",
+        "Oral Literature",
+        "Contemporary Literature",
+        "Literary History"
+      ]
+    },
+    "History": {
+      "topics": [
+        "Nigerian History",
+        "West African History",
+        "African History",
+        "World History",
+        "Colonial Period",
+        "Independence Movements",
+        "Ancient Civilizations",
+        "Medieval Period",
+        "Modern History",
+        "Historical Methods"
+      ]
+    },
+    "Agricultural Science": {
+      "topics": [
+        "Crop Production",
+        "Animal Production",
+        "Soil Science",
+        "Agricultural Economics",
+        "Farm Management",
+        "Agricultural Technology",
+        "Plant Breeding",
+        "Animal Breeding",
+        "Agricultural Extension",
+        "Food Processing"
+      ]
+    },
+    "Computer Studies": {
+      "topics": [
+        "Computer Fundamentals",
+        "Hardware and Software",
+        "Programming Concepts",
+        "Data Processing",
+        "Computer Networks",
+        "Database Systems",
+        "Internet and Web",
+        "Computer Security",
+        "System Analysis",
+        "Emerging Technologies"
+      ]
+    }
+  },
+  "sat": {
+    "Math": {
+      "topics": [
+        "Algebra and Functions",
+        "Geometry and Trigonometry",
+        "Statistics and Probability",
+        "Data Analysis",
+        "Problem Solving",
+        "Advanced Mathematics",
+        "Linear Equations",
+        "Quadratic Functions",
+        "Exponential Functions",
+        "Mathematical Reasoning"
+      ]
+    },
+    "Reading and Writing": {
+      "topics": [
+        "Reading Comprehension",
+        "Grammar and Usage",
+        "Vocabulary in Context",
+        "Writing and Language",
+        "Rhetorical Analysis",
+        "Evidence-Based Reading",
+        "Command of Evidence",
+        "Words in Context",
+        "Analysis in History/Social Studies",
+        "Analysis in Science"
+      ]
+    },
+    "Biology": {
+      "topics": [
+        "Cell Biology",
+        "Genetics",
+        "Evolution",
+        "Ecology",
+        "Molecular Biology",
+        "Physiology",
+        "Anatomy",
+        "Biochemistry",
+        "Biotechnology",
+        "Environmental Science"
+      ]
+    },
+    "Chemistry": {
+      "topics": [
+        "Atomic Structure",
+        "Chemical Bonding",
+        "Thermodynamics",
+        "Kinetics",
+        "Equilibrium",
+        "Acids and Bases",
+        "Electrochemistry",
+        "Organic Chemistry",
+        "Laboratory Techniques",
+        "Chemical Analysis"
+      ]
+    },
+    "Physics": {
+      "topics": [
+        "Mechanics",
+        "Electricity and Magnetism",
+        "Waves and Optics",
+        "Thermodynamics",
+        "Modern Physics",
+        "Nuclear Physics",
+        "Quantum Physics",
+        "Relativity",
+        "Particle Physics",
+        "Astrophysics"
+      ]
+    }
+  },
+  "neet": {
+    "Physics": {
+      "topics": [
+        "Mechanics",
+        "Thermodynamics",
+        "Oscillations and Waves",
+        "Electrostatics",
+        "Current Electricity",
+        "Magnetic Effects of Current",
+        "Electromagnetic Induction",
+        "Optics",
+        "Modern Physics",
+        "Dual Nature of Matter"
+      ]
+    },
+    "Chemistry": {
+      "topics": [
+        "Physical Chemistry",
+        "Inorganic Chemistry",
+        "Organic Chemistry",
+        "Chemical Bonding",
+        "Thermodynamics",
+        "Chemical Kinetics",
+        "Electrochemistry",
+        "Solutions",
+        "Surface Chemistry",
+        "Coordination Compounds"
+      ]
+    },
+    "Biology": {
+      "topics": [
+        "Cell Biology",
+        "Genetics and Evolution",
+        "Plant Physiology",
+        "Animal Physiology",
+        "Reproduction",
+        "Ecology and Environment",
+        "Biotechnology",
+        "Human Health and Disease",
+        "Molecular Biology",
+        "Biodiversity"
+      ]
+    },
+    "Botany": {
+      "topics": [
+        "Plant Morphology",
+        "Plant Anatomy",
+        "Plant Physiology",
+        "Plant Reproduction",
+        "Plant Taxonomy",
+        "Plant Ecology",
+        "Economic Botany",
+        "Plant Pathology",
+        "Plant Breeding",
+        "Biotechnology in Plants"
+      ]
+    },
+    "Zoology": {
+      "topics": [
+        "Animal Diversity",
+        "Animal Physiology",
+        "Animal Behavior",
+        "Animal Reproduction",
+        "Animal Development",
+        "Animal Ecology",
+        "Animal Evolution",
+        "Animal Biotechnology",
+        "Animal Health",
+        "Conservation Biology"
+      ]
+    }
+  }
+}
