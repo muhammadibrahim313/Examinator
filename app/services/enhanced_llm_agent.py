@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedLLMAgentService:
     """
-    Enhanced LLM agent service with FAQ, navigation, and comprehensive help capabilities
+    Enhanced LLM agent service with FIXED response processing
     """
     
     def __init__(self):
@@ -36,7 +36,7 @@ class EnhancedLLMAgentService:
     
     async def process_message(self, user_phone: str, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
-        Process a message using the enhanced LLM agent with FAQ and help capabilities
+        Process a message using the enhanced LLM agent with FIXED response handling
         """
         try:
             logger.info(f"Processing enhanced LLM message from {user_phone}: {message}")
@@ -54,54 +54,67 @@ class EnhancedLLMAgentService:
             # Create the input for the agent
             agent_input = {"messages": [HumanMessage(content=enhanced_message)]}
             
-            # Process with the agent
+            # FIXED: Process with the agent and collect ALL response content
             response_chunks = []
+            final_messages = []
+            
+            logger.info(f"🤖 Starting LLM agent processing for: {message}")
+            
             async for chunk in self.agent.astream(agent_input, config=self.config):
+                logger.debug(f"📦 Agent chunk received: {list(chunk.keys())}")
+                
+                # Collect messages from different possible locations
                 if 'messages' in chunk:
                     for msg in chunk['messages']:
                         if hasattr(msg, 'content') and msg.content:
+                            logger.debug(f"✅ Found message content: {msg.content[:100]}...")
                             response_chunks.append(msg.content)
-                            logger.debug(f"Agent chunk: {msg.content[:100]}...")
+                            final_messages.append(msg)
+                
+                # Also check for agent-specific message format
+                if 'agent' in chunk and 'messages' in chunk['agent']:
+                    for msg in chunk['agent']['messages']:
+                        if hasattr(msg, 'content') and msg.content:
+                            logger.debug(f"✅ Found agent message content: {msg.content[:100]}...")
+                            response_chunks.append(msg.content)
+                            final_messages.append(msg)
             
-            # Combine all response chunks
-            full_response = '\n'.join(response_chunks) if response_chunks else "I'm sorry, I couldn't process your request right now."
+            logger.info(f"📝 LLM agent processing complete: {len(response_chunks)} response chunks collected")
             
-            # Enhance response with personalized recommendations if appropriate
-            enhanced_response = self._enhance_response_with_personalization(
-                full_response, message, user_phone, context
-            )
+            # FIXED: Process the final response properly
+            if response_chunks:
+                # Get the last meaningful response (usually the final answer)
+                final_response = response_chunks[-1] if response_chunks else ""
+                
+                # Log what we got
+                logger.info(f"📤 Final LLM response length: {len(final_response)} characters")
+                logger.info(f"📤 Final LLM response preview: {final_response[:200]}...")
+                
+                # FIXED: Don't apply word limits or truncation to LLM responses
+                # The LLM should handle its own response length
+                formatted_response = self._format_response_for_whatsapp(final_response)
+                
+                logger.info(f"✅ Enhanced LLM response for {user_phone}: SUCCESS")
+                return formatted_response
             
-            # Clean and format the response for WhatsApp
-            formatted_response = self._format_response_for_whatsapp(enhanced_response)
-            
-            logger.info(f"Enhanced LLM response for {user_phone}: {formatted_response[:100]}...")
-            return formatted_response
+            else:
+                logger.error(f"❌ LLM AGENT FAILED: No response chunks collected for {user_phone}")
+                return self._get_fallback_response(message, context)
             
         except Exception as e:
-            logger.error(f"Error processing enhanced LLM message from {user_phone}: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error processing enhanced LLM message from {user_phone}: {str(e)}", exc_info=True)
             
             # Check hybrid model status for better error messages
             stats = hybrid_manager.get_stats()
-            logger.info(f"Hybrid model stats during error: {stats}")
+            logger.info(f"🤖 Hybrid model stats during error: {stats}")
             
-            # Provide more helpful error responses based on the context
-            if self._is_help_request(message):
-                return self._get_fallback_help_response(context)
-            elif self._is_faq_request(message):
-                return self._get_fallback_faq_response(context)
-            elif "hello" in message.lower() or "hi" in message.lower():
-                return "Hello! 👋 I'm your personalized Exam Practice Bot. Send 'start' to begin practicing with AI-powered question selection!"
-            elif context and context.get('exam'):
-                exam_name = context.get('exam', '').upper()
-                return f"I'm having trouble processing that request. You're practicing for {exam_name}. Send 'restart' to start over or try a different approach."
-            else:
-                return "I'm experiencing technical difficulties right now. Please send 'start' to begin exam practice or try again in a moment."
+            return self._get_fallback_response(message, context)
     
     def _enhance_message_with_full_context(self, message: str, context: Optional[Dict[str, Any]], 
                                          user_summary: Dict[str, Any], user_weaknesses: list, 
                                          user_recommendations: list) -> str:
         """
-        Enhance the user message with comprehensive context including FAQ and help capabilities
+        Enhance the user message with comprehensive context
         """
         context_parts = []
         
@@ -205,18 +218,18 @@ class EnhancedLLMAgentService:
     def _get_system_prompt_for_type(self, message_type: str) -> str:
         """Get appropriate system prompt based on message type"""
         base_rules = """
-CRITICAL RESPONSE RULES:
-- MAXIMUM 100 WORDS per response
-- Be helpful and informative
-- Use 1-2 emojis if appropriate
-- Keep responses clear and actionable
-- Focus on exam practice for JAMB, SAT, NEET
+You are a helpful exam practice assistant specializing in JAMB, SAT, and NEET exams.
+
+RESPONSE GUIDELINES:
+- Be helpful, informative, and encouraging
+- Provide practical advice and explanations
+- Use emojis appropriately to make responses friendly
+- Focus on exam practice and study guidance
+- Keep responses conversational but informative
 """
         
         if message_type == 'faq_help':
             return f"""
-You are a helpful exam practice assistant specializing in FAQ and help responses.
-
 {base_rules}
 
 HELP SPECIALIZATION:
@@ -225,29 +238,11 @@ HELP SPECIALIZATION:
 - Help with navigation and exam practice
 - Answer questions about JAMB, SAT, NEET exams
 - Explain practice modes (topic, year, mixed, weak areas)
-
-WORD LIMIT: Your response must be under 100 words total!
-"""
-        
-        elif message_type == 'navigation':
-            return f"""
-You are a helpful exam practice assistant specializing in navigation help.
-
-{base_rules}
-
-NAVIGATION SPECIALIZATION:
-- Help users navigate between stages
-- Explain how to go back or forward
-- Clarify current position in the flow
-- Provide clear next steps
-
-WORD LIMIT: Your response must be under 100 words total!
+- Give study tips and strategies
 """
         
         elif message_type == 'performance':
             return f"""
-You are a helpful exam practice assistant specializing in performance analysis.
-
 {base_rules}
 
 PERFORMANCE SPECIALIZATION:
@@ -255,14 +250,11 @@ PERFORMANCE SPECIALIZATION:
 - Provide encouraging feedback
 - Suggest improvement strategies
 - Highlight strengths and weaknesses
-
-WORD LIMIT: Your response must be under 100 words total!
+- Give personalized study recommendations
 """
         
         elif message_type == 'exam_query':
             return f"""
-You are a helpful exam practice assistant helping during active exam sessions.
-
 {base_rules}
 
 EXAM ASSISTANCE:
@@ -270,29 +262,22 @@ EXAM ASSISTANCE:
 - Provide study tips and explanations
 - Help with exam strategies
 - Encourage continued practice
-
-WORD LIMIT: Your response must be under 100 words total!
+- Explain difficult concepts
 """
         
         elif message_type == 'greeting':
             return f"""
-You are a friendly exam practice assistant! 🎓 
-
 {base_rules}
 
 GREETING SPECIALIZATION:
 - Be warm and welcoming
 - Mention available exams: JAMB, SAT, NEET
 - Provide clear next steps
-- Keep it conversational and brief
-
-WORD LIMIT: Your response must be under 100 words total!
+- Keep it conversational and encouraging
 """
         
         else:  # general
             return f"""
-You are a helpful exam practice assistant.
-
 {base_rules}
 
 GENERAL ASSISTANCE:
@@ -300,19 +285,28 @@ GENERAL ASSISTANCE:
 - Focus on exam practice guidance
 - Provide clear next steps
 - Answer questions about the platform
-
-WORD LIMIT: Your response must be under 100 words total!
+- Give study advice when appropriate
 """
     
-    def _is_help_request(self, message: str) -> bool:
-        """Check if message is a help request"""
-        help_keywords = ['help', 'faq', 'how', 'what', 'guide', 'tutorial', 'assistance']
-        return any(keyword in message.lower() for keyword in help_keywords)
-    
-    def _is_faq_request(self, message: str) -> bool:
-        """Check if message is an FAQ request"""
-        faq_keywords = ['faq', 'question', 'frequently', 'common', 'ask']
-        return any(keyword in message.lower() for keyword in faq_keywords)
+    def _get_fallback_response(self, message: str, context: Optional[Dict[str, Any]]) -> str:
+        """Get fallback response when LLM fails"""
+        message_lower = message.lower()
+        
+        if any(word in message_lower for word in ['hello', 'hi', 'hey']):
+            return "Hello! 👋 I'm your Exam Practice Bot. Send 'start' to begin practicing for JAMB, SAT, or NEET exams!"
+        
+        elif any(word in message_lower for word in ['help', 'faq']):
+            return self._get_fallback_help_response(context)
+        
+        elif any(word in message_lower for word in ['duplicate', 'repeat', 'same']):
+            return "📚 About duplicate questions:\n\nSometimes you might see similar questions because:\n• Real exams often test the same concepts\n• Questions come from multiple years\n• Important topics appear frequently\n\nThis helps reinforce learning! 💪"
+        
+        elif context and context.get('exam'):
+            exam_name = context.get('exam', '').upper()
+            return f"I'm having trouble processing that request about {exam_name}. Send 'help' for available commands or try rephrasing your question."
+        
+        else:
+            return "I'm having a technical issue right now. Please send 'help' for available commands or try again in a moment."
     
     def _get_fallback_help_response(self, context: Optional[Dict[str, Any]]) -> str:
         """Get fallback help response when LLM fails"""
@@ -334,50 +328,9 @@ WORD LIMIT: Your response must be under 100 words total!
         response += "\n💡 Ask me anything about exam practice!"
         return response
     
-    def _get_fallback_faq_response(self, context: Optional[Dict[str, Any]]) -> str:
-        """Get fallback FAQ response when LLM fails"""
-        response = "❓ **FAQ**\n\n"
-        response += "🎓 **Available Exams:** JAMB, SAT, NEET\n"
-        response += "📚 **Practice Modes:** Topic, Year, Mixed, Weak Areas\n"
-        response += "🔧 **Commands:** start, back, stop, help\n"
-        response += "\n💡 Ask me specific questions for detailed help!"
-        return response
-    
-    def _enhance_response_with_personalization(self, response: str, original_message: str, 
-                                             user_phone: str, context: Optional[Dict[str, Any]]) -> str:
-        """
-        Enhance the response with personalized recommendations and study tips
-        """
-        # Check if user is asking for help or study advice
-        help_keywords = ['help', 'study', 'improve', 'practice', 'recommend', 'suggest', 'tips', 'faq']
-        if any(keyword in original_message.lower() for keyword in help_keywords):
-            
-            # Add personalized study suggestions for help requests
-            study_suggestions = self.question_selector.suggest_study_areas(user_phone)
-            if study_suggestions and len(response.split()) < 80:  # Only if we have space
-                response += f"\n\n📚 Quick Tips:\n"
-                for i, suggestion in enumerate(study_suggestions[:2], 1):  # Limit to 2 suggestions
-                    response += f"{i}. {suggestion}\n"
-        
-        # If user is in an exam session, provide performance-based encouragement
-        if context and context.get('stage') == 'taking_exam':
-            current_score = context.get('score', 0)
-            current_question = context.get('current_question_index', 0) + 1
-            
-            if current_question > 3 and len(response.split()) < 80:  # After a few questions and if we have space
-                accuracy = current_score / current_question
-                if accuracy >= 0.8:
-                    response += f"\n\n🎉 Great work! {accuracy:.1%} accuracy!"
-                elif accuracy >= 0.6:
-                    response += f"\n\n👍 Good progress! {accuracy:.1%} so far."
-                else:
-                    response += f"\n\n💪 Keep going! Review explanations carefully."
-        
-        return response
-    
     def _format_response_for_whatsapp(self, response: str) -> str:
         """
-        Format the agent response for WhatsApp delivery with 100-word limit
+        Format the agent response for WhatsApp delivery - FIXED: No truncation
         """
         # Remove excessive formatting that doesn't work well in WhatsApp
         formatted = response.strip()
@@ -385,37 +338,10 @@ WORD LIMIT: Your response must be under 100 words total!
         # Clean up any problematic characters or formatting
         formatted = formatted.replace('```', '').replace('**', '*')
         
-        # Enforce 100-word limit for enhanced responses
-        formatted = self._enforce_word_limit(formatted, 100)
+        # FIXED: Don't truncate LLM responses - let them be full length
+        # The LLM should handle appropriate response length
         
         return formatted
-    
-    def _enforce_word_limit(self, text: str, max_words: int) -> str:
-        """
-        Enforce word limit on response text
-        """
-        words = text.split()
-        word_count = len(words)
-        
-        if word_count <= max_words:
-            return text
-        
-        # Truncate to word limit and add indicator
-        truncated_words = words[:max_words-2]  # Save space for "..."
-        truncated_text = ' '.join(truncated_words) + "..."
-        
-        logger.info(f"Response truncated from {word_count} to {len(truncated_words)} words")
-        return truncated_text
-    
-    def _count_words(self, text: str) -> int:
-        """
-        Count words in text (excluding emojis)
-        """
-        # Remove emojis and special characters for accurate word count
-        import re
-        clean_text = re.sub(r'[^\w\s]', ' ', text)
-        words = clean_text.split()
-        return len(words)
     
     def is_exam_related_query(self, message: str) -> bool:
         """
@@ -425,7 +351,7 @@ WORD LIMIT: Your response must be under 100 words total!
             'exam', 'test', 'question', 'answer', 'jamb', 'sat', 'neet',
             'biology', 'chemistry', 'physics', 'math', 'english',
             'practice', 'study', 'score', 'result', 'performance',
-            'weakness', 'strength', 'improve', 'help', 'faq'
+            'weakness', 'strength', 'improve', 'help', 'faq', 'duplicate'
         ]
         
         message_lower = message.lower()
