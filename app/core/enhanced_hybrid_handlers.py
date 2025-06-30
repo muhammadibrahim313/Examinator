@@ -4,12 +4,13 @@ import asyncio
 from app.core.hybrid_message_handler import HybridMessageHandler
 from app.services.enhanced_llm_agent import EnhancedLLMAgentService
 from app.services.personalized_question_selector import PersonalizedQuestionSelector
+from app.core.system_commands import SystemCommands
 
 logger = logging.getLogger(__name__)
 
 class PersonalizedExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with FIXED immediate loading, navigation, validation, and test controls
+    Enhanced exam type handler with FIXED navigation command routing
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -26,7 +27,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 self.exam_registry.is_exam_supported(exam))
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
-        """Enhanced LLM usage detection with FAQ and help support"""
+        """FIXED: Never use LLM for system commands - always use structured logic"""
         stage = user_state.get('stage', '')
         message_lower = message.lower().strip()
         
@@ -34,42 +35,35 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         if stage in ['loading_questions', 'async_loading']:
             return False
         
-        # Always use LLM for FAQ, help, and general queries
-        faq_keywords = ['help', 'faq', 'question', 'how', 'what', 'why', 'explain', 'tell me', 'can you', 'about', 'info']
-        if any(keyword in message_lower for keyword in faq_keywords):
-            return True
+        # NEVER use LLM for system commands - this is the key fix
+        if SystemCommands.is_system_command(message_lower):
+            return False
         
-        # Use LLM for navigation commands that need explanation
-        navigation_commands = ['back', 'previous', 'return', 'go back']
-        if any(cmd in message_lower for cmd in navigation_commands):
-            return True
+        # NEVER use LLM for valid exam answers
+        if stage == 'taking_exam' and message_lower in ['a', 'b', 'c', 'd']:
+            return False
         
-        # Use LLM for test control commands that need explanation
-        test_control_commands = ['stop', 'quit', 'exit', 'submit', 'pause', 'end']
-        if any(cmd in message_lower for cmd in test_control_commands):
-            return True
-        
-        if stage == 'taking_exam':
-            # Use structured logic for valid answers, LLM for everything else
-            if message_lower in ['a', 'b', 'c', 'd']:
-                return False
-            else:
-                return True  # Use LLM for questions, help, or invalid inputs during exam
-        
-        # For selection stages, use structured logic for numbers, LLM for queries
+        # NEVER use LLM for valid number selections
         try:
             int(message.strip())
             return False
         except ValueError:
+            pass
+        
+        # Only use LLM for explicit triggers
+        if SystemCommands.is_llm_trigger(message):
             return True
+        
+        # Default to structured logic for everything else
+        return False
     
     def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced logic handler with navigation, validation, and test controls"""
+        """Enhanced logic handler with FIXED navigation command handling"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         message_lower = message.lower().strip()
         
-        logger.info(f"Handling enhanced {exam} stage {stage} for {user_phone}")
+        logger.info(f"Handling enhanced {exam} stage {stage} for {user_phone} with structured logic")
         
         if not exam or not stage:
             return {
@@ -96,16 +90,20 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'next_handler': f'{exam}_handler'
             }
         
-        # Handle navigation commands
-        navigation_result = self._handle_navigation_commands(message_lower, user_state)
-        if navigation_result:
-            return navigation_result
+        # FIXED: Handle navigation commands FIRST with structured logic
+        if SystemCommands.get_command_type(message_lower) == SystemCommands.CommandType.NAVIGATION:
+            logger.info(f"🔧 NAVIGATION COMMAND: Handling '{message_lower}' with structured logic")
+            navigation_result = self._handle_navigation_commands(message_lower, user_state)
+            if navigation_result:
+                return navigation_result
         
-        # Handle test control commands during exam
-        if stage == 'taking_exam':
-            test_control_result = self._handle_test_control_commands(message_lower, user_phone, user_state)
-            if test_control_result:
-                return test_control_result
+        # FIXED: Handle test control commands with structured logic
+        if SystemCommands.get_command_type(message_lower) == SystemCommands.CommandType.TEST_CONTROL:
+            logger.info(f"🔧 TEST CONTROL COMMAND: Handling '{message_lower}' with structured logic")
+            if stage == 'taking_exam':
+                test_control_result = self._handle_test_control_commands(message_lower, user_phone, user_state)
+                if test_control_result:
+                    return test_control_result
         
         # Enhanced input validation with helpful error messages
         validation_result = self._validate_and_guide_input(message, stage, user_state)
@@ -144,12 +142,14 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             }
     
     def _handle_navigation_commands(self, message_lower: str, user_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Handle navigation commands like 'back', 'previous', etc."""
+        """FIXED: Handle navigation commands with structured logic"""
         navigation_commands = ['back', 'previous', 'return', 'go back', 'menu']
         
         if any(cmd in message_lower for cmd in navigation_commands):
             stage = user_state.get('stage', '')
             exam = user_state.get('exam')
+            
+            logger.info(f"🔧 PROCESSING NAVIGATION: '{message_lower}' from stage '{stage}'")
             
             # Define stage hierarchy for navigation
             stage_hierarchy = {
@@ -172,7 +172,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     response = (f"🔙 Going back to exam selection\n\n"
                                f"🎓 Available exams:\n{exam_list}\n\n"
                                f"Please reply with the number of your choice.\n\n"
-                               f"💡 Commands: 'help' (assistance), 'faq' (common questions)")
+                               f"💡 Commands: 'help' (assistance)")
                     
                     return {
                         'response': response,
@@ -276,7 +276,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             
             else:
                 return {
-                    'response': "🔙 You're already at the beginning. Send 'start' to begin a new session or 'restart' to start over.\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
+                    'response': "🔙 You're already at the beginning. Send 'start' to begin a new session or 'restart' to start over.\n\n💡 Commands: 'help' (assistance)",
                     'state_updates': {},
                     'next_handler': f'{exam}_handler'
                 }
@@ -295,7 +295,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             
             if total_questions == 0:
                 return {
-                    'response': "No active test to stop. Send 'start' to begin a new practice session.\n\n💡 Commands: 'help' (assistance), 'faq' (common questions)",
+                    'response': "No active test to stop. Send 'start' to begin a new practice session.\n\n💡 Commands: 'help' (assistance)",
                     'state_updates': {'stage': 'completed'},
                     'next_handler': None
                 }
@@ -338,7 +338,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             response += "\n🎯 Next Steps:\n"
             response += "• Send 'start' - Begin new practice session\n"
             response += "• Send 'help' - Get assistance\n"
-            response += "• Send 'faq' - Common questions\n"
             
             if 'pause' in message_lower:
                 response += "• Send 'resume' - Continue this test (if supported)"
@@ -385,8 +384,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     response += "\n\n💡 Available Commands:\n"
                     response += "• 'back' - Go to previous step\n"
                     response += "• 'restart' - Start over completely\n"
-                    response += "• 'help' - Get assistance\n"
-                    response += "• 'faq' - Common questions"
+                    response += "• 'help' - Get assistance"
                     
                     return {
                         'response': response,
@@ -402,8 +400,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                     response += "💡 Available Commands:\n"
                     response += "• Numbers (1, 2, 3...) - Select options\n"
                     response += "• 'back' - Go to previous step\n"
-                    response += "• 'help' - Get assistance\n"
-                    response += "• 'faq' - Ask questions"
+                    response += "• 'help' - Get assistance"
                     
                     return {
                         'response': response,
@@ -444,8 +441,7 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 response += "• 'stop' - End the test\n"
                 response += "• 'submit' - Submit current progress\n"
                 response += "• 'pause' - Pause the test\n"
-                response += "• 'help' - Get assistance\n"
-                response += "• 'faq' - Ask questions about the exam"
+                response += "• 'help' - Get assistance"
                 
                 return {
                     'response': response,
@@ -593,25 +589,12 @@ class SmartFAQHandler(HybridMessageHandler):
         self.llm_agent = EnhancedLLMAgentService()
     
     def can_handle(self, message: str, user_state: Dict[str, Any]) -> bool:
-        faq_keywords = [
-            'help', 'faq', 'question', 'how', 'what', 'why', 'when', 'where',
-            'explain', 'tell me', 'can you', 'do you', 'about', 'info',
-            'support', 'assistance', 'guide', 'tutorial', 'commands'
-        ]
-        message_lower = message.lower()
-        
-        # Don't handle if it's a simple number (likely a selection)
-        try:
-            int(message.strip())
-            return False
-        except ValueError:
-            pass
-        
-        # Don't handle if it's a simple answer (A, B, C, D)
-        if message.strip().lower() in ['a', 'b', 'c', 'd']:
+        # Only handle explicit LLM triggers, not system commands
+        if SystemCommands.is_system_command(message.lower().strip()):
             return False
         
-        return any(keyword in message_lower for keyword in faq_keywords)
+        # Only handle LLM trigger messages
+        return SystemCommands.is_llm_trigger(message)
     
     def should_use_llm(self, message: str, user_state: Dict[str, Any]) -> bool:
         return True  # Always use LLM for FAQ queries
@@ -645,8 +628,7 @@ class SmartFAQHandler(HybridMessageHandler):
         response += "• 'start' - Begin new practice session\n"
         response += "• 'restart' - Start over completely\n"
         response += "• 'back' - Go to previous step\n"
-        response += "• 'help' - Show this help\n"
-        response += "• 'faq' - Common questions\n\n"
+        response += "• 'help' - Show this help\n\n"
         
         # Stage-specific help
         if stage == 'taking_exam':
@@ -664,7 +646,7 @@ class SmartFAQHandler(HybridMessageHandler):
         # Available exams
         response += "🎓 **Available Exams:** JAMB, SAT, NEET\n"
         response += "📚 **Practice Modes:** Topic, Year, Mixed, Weak Areas\n\n"
-        response += "💡 Ask me anything about exam practice, study tips, or specific subjects!"
+        response += "💡 To chat with AI: Use 'ask: your question'"
         
         return {
             'response': response,
@@ -681,7 +663,6 @@ class SmartFAQHandler(HybridMessageHandler):
         if stage == 'initial':
             response += "• 'start' - Begin exam practice\n"
             response += "• 'help' - Get help\n"
-            response += "• 'faq' - Common questions\n"
         
         elif stage == 'selecting_exam':
             response += "• 1, 2, 3 - Select exam\n"
@@ -705,7 +686,7 @@ class SmartFAQHandler(HybridMessageHandler):
             response += "• 'start' - Begin new session\n"
             response += "• 'help' - Get help\n"
         
-        response += "\n💡 You can also ask me questions anytime!"
+        response += "\n💡 To chat with AI: Use 'ask: your question'"
         
         return {
             'response': response,
@@ -734,10 +715,7 @@ class SmartFAQHandler(HybridMessageHandler):
         response += "A: Yes! Send 'back' to go to previous step\n\n"
         
         response += "💡 **Need More Help?**\n"
-        response += "Ask me specific questions like:\n"
-        response += "• 'How do I practice JAMB Biology?'\n"
-        response += "• 'What study tips do you have?'\n"
-        response += "• 'How can I improve my scores?'"
+        response += "Use 'ask: your question' to chat with AI!"
         
         return {
             'response': response,
