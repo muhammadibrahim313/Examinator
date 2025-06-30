@@ -17,6 +17,35 @@ A revolutionary WhatsApp chatbot that helps students practice for computer-based
 - **Topic & Year References**: Each question shows its topic and source year
 - **Standard Format**: Proper exam format with correct number of questions
 
+### Personalized Analytics & Recommendations 🧠
+- **Automatic performance tracking**: Every session and question is logged for analytics.
+- **Personalized recommendations**: Get actionable study tips based on your performance, weak areas, and improvement trends.
+- **On-demand performance summaries**: Ask "How am I doing?" or "Show my progress" anytime.
+- **Strengths & Weaknesses**: See your top strengths and weaknesses by subject and topic.
+- **Improvement Trends**: Track if you are improving, stable, or declining over time.
+
+### Smart Performance Reports 📊
+- **Natural language queries**: Ask about your stats, progress, or weaknesses in plain English.
+- **Detailed feedback**: Get total sessions, questions answered, accuracy, and recommendations.
+- **Session history**: Review your recent performance and trends.
+
+### Flexible Navigation & Test Control 🕹️
+- **Go back**: Use "back", "menu", or "previous" to return to earlier steps.
+- **Pause/Stop/Submit**: Use "pause", "stop", or "submit" during exams.
+- **Restart/Exit**: Instantly restart or exit sessions with simple commands.
+- **Error recovery**: Easily recover from mistakes or change your mind mid-flow.
+
+### LLM-Powered Help, FAQ & Open-Ended Queries 🤖
+- **Ask anything**: Use "ask: <your question>" for open-ended queries or research.
+- **Smart help**: Get context-aware help and FAQ at any time.
+- **Hybrid LLM**: Uses Groq (primary) and Gemini (fallback) for robust, up-to-date answers.
+
+### Async Question Loading ⚡
+- **No loading delays**: Questions are delivered instantly with async backend logic.
+
+### Session Timeout & Cleanup
+- **Automatic session cleanup**: Sessions expire after 1 hour of inactivity for privacy and performance.
+
 ### Supported Exams & Subjects
 
 #### JAMB (Joint Admissions and Matriculation Board)
@@ -176,6 +205,63 @@ Bot: ✅ You selected: Mixed Practice (All Topics)
 [Questions from various topics: Cell Biology, Genetics, Ecology, etc.]
 ```
 
+### 6. **On-Demand Performance & Analytics**
+```
+User: How am I doing in biology?
+Bot: 📊 Your Biology Performance:
+
+🎯 Topic Performance:
+• Cell Biology: 85% (25 questions from 2020-2024)
+• Genetics: 72% (20 questions from 2018-2023)
+• Ecology: 90% (15 questions from 2019-2024)
+
+📅 Year Performance:
+• JAMB 2023: 78% (50 questions)
+• JAMB 2022: 82% (30 questions)
+
+💪 Recommendations:
+• Focus more on Genetics concepts
+• Practice more 2021-2022 questions
+• Review Cell Biology fundamentals
+```
+
+### 7. **Personalized Recommendations**
+```
+User: What should I focus on next?
+Bot: 💡 Personalized Recommendations:
+• Focus more practice on Genetics - current accuracy: 72%
+• Review Cell Biology concepts - you've struggled with this topic
+• Consider reviewing fundamental concepts before attempting more questions
+```
+
+### 8. **Flexible Navigation & Test Control**
+```
+User: back
+Bot: 🔙 Going back to subject selection for JAMB
+
+[Shows subject list again]
+
+User: stop
+Bot: 🛑 Test stopped. Your progress has been saved. Send 'resume' to continue or 'start' for a new session.
+
+User: submit
+Bot: ✅ Test submitted! Here is your score and feedback...
+```
+
+### 9. **LLM-Powered Help, FAQ & Open-Ended Queries**
+```
+User: help
+Bot: 🆘 Help & Commands
+• 'start' - Begin new practice session
+• 'restart' - Start over completely
+• 'back' - Go to previous step
+• 'help' - Show this help
+• 'ask: <your question>' - Chat with AI
+
+User: ask: What is photosynthesis?
+Bot: [LLM-powered answer with up-to-date information]
+```
+
 ## 🎯 Benefits of Flexible Practice
 
 ### For Students
@@ -184,6 +270,7 @@ Bot: ✅ You selected: Mixed Practice (All Topics)
 - **Comprehensive Coverage**: Practice complete years for exam simulation
 - **Weakness Identification**: AI tracks which topics you struggle with
 - **Efficient Study**: Practice exactly what you need, when you need it
+- **Personalized Feedback**: Get actionable recommendations and progress reports
 
 ### For Exam Preparation
 - **Real Questions**: Authentic past questions maintain exam authenticity
@@ -191,6 +278,7 @@ Bot: ✅ You selected: Mixed Practice (All Topics)
 - **Year Familiarity**: Practice complete years to understand exam patterns
 - **Performance Tracking**: See your progress in each topic and year
 - **Adaptive Learning**: System focuses on your weak areas
+- **Session Analytics**: Review your improvement trends and session history
 
 ## 🛠️ Quick Start
 
@@ -238,29 +326,40 @@ Result: 50 questions covering all biology topics from multiple years
 
 ### Performance-Focused Student
 ```
-User: "Focus on my weak areas"
-Bot: [Guides to JAMB Biology → Practice by Topic → Weak Areas Focus]
-Result: 30 questions from topics where user has struggled
+User: "Show my progress"
+Bot: [Shows performance summary, strengths, weaknesses, and recommendations]
+```
+
+### Navigation & Recovery
+```
+User: "back"
+Bot: [Returns to previous step, e.g., subject selection]
+
+User: "stop"
+Bot: [Pauses or ends the test, saves progress]
+```
+
+### LLM/AI Chat
+```
+User: "ask: What is the difference between mitosis and meiosis?"
+Bot: [LLM-powered answer with up-to-date information]
 ```
 
 ## 🔧 Technical Architecture
 
-### Flexible Question Fetching
-```python
-# Supports both topic and year-based fetching
-class FlexibleJAMBExamType:
-    async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]):
-        if practice_mode == 'topic':
-            # Topic-based practice from multiple years
-            questions = await self.topic_fetcher.fetch_questions_by_topic(
-                'jamb', subject, selected_topic, num_questions
-            )
-        else:  # year mode
-            # Year-based practice with all topics
-            questions = await self.question_fetcher.fetch_questions(
-                'jamb', subject, num_questions
-            )
-```
+### Flexible Question Fetching & Async Flows
+- All exam types support both topic and year-based fetching.
+- Questions are loaded asynchronously for instant delivery.
+- Navigation and control commands are handled at every stage.
+
+### Enhanced State & Analytics
+- **EnhancedUserStateManager**: Tracks sessions, question-level performance, and analytics.
+- **UserAnalytics**: Stores and analyzes user progress, strengths, weaknesses, and learning patterns.
+- **Personalized Recommendations**: Generated after each session and available on demand.
+
+### Hybrid LLM Integration
+- **Groq (primary) + Gemini (fallback)**: Used for open-ended queries, help, and FAQ.
+- **LLM triggers**: Users can explicitly ask for research or explanations at any time.
 
 ### Universal UX Pattern
 All exams (JAMB, SAT, NEET) follow the same user experience:
