@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedSmartMessageProcessor:
     """
-    Enhanced message processor with FIXED system command validation
+    Enhanced message processor with FIXED async handling for exam types
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -38,11 +38,11 @@ class EnhancedSmartMessageProcessor:
             PersonalizedExamTypeHandler(self.state_manager, self.exam_registry),
             SmartFallbackHandler(self.state_manager, self.exam_registry)
         ]
-        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers with system command validation")
+        logger.info(f"Initialized {len(self.handlers)} enhanced smart message handlers with async support")
     
     async def process_message(self, user_phone: str, message: str) -> str:
         """
-        Process a message with FIXED system command validation
+        Process a message with FIXED async handling for exam types
         """
         try:
             # Get current user state
@@ -81,42 +81,16 @@ class EnhancedSmartMessageProcessor:
             
             logger.info(f"Using enhanced handler: {handler.__class__.__name__}")
             
-            # STEP 6: Process the message
+            # STEP 6: Process the message with FIXED async handling
             result = await handler.handle(user_phone, message, user_state)
             
-            # STEP 7: Check for immediate async loading signal
-            if result.get('immediate_async_load'):
-                logger.info(f"🔄 IMMEDIATE ASYNC LOADING: Processing async loading for {user_phone} in same request")
-                
-                # Apply state updates first (set to async_loading)
-                state_updates = result.get('state_updates', {})
-                if state_updates:
-                    self.state_manager.update_user_state(user_phone, state_updates)
-                
-                # Perform async loading immediately and return the final result
-                loading_result = await self._handle_async_loading(user_phone, self.state_manager.get_user_state(user_phone))
-                
-                # Apply any additional state updates from loading
-                if isinstance(loading_result, dict):
-                    loading_state_updates = loading_result.get('state_updates', {})
-                    if loading_state_updates:
-                        self.state_manager.update_user_state(user_phone, loading_state_updates)
-                    
-                    # Return the final response (first question)
-                    final_response = loading_result.get('response', 'Questions loaded successfully!')
-                else:
-                    final_response = loading_result
-                
-                logger.info(f"✅ IMMEDIATE ASYNC COMPLETE: Returning final response for {user_phone}")
-                return final_response
-            
-            # STEP 8: Apply state updates if any
+            # STEP 7: Apply state updates if any
             state_updates = result.get('state_updates', {})
             if state_updates:
                 logger.info(f"Applying enhanced state updates for {user_phone}: {list(state_updates.keys())}")
                 self.state_manager.update_user_state(user_phone, state_updates)
             
-            # STEP 9: Return response
+            # STEP 8: Return response
             response = result.get('response', 'No response generated.')
             logger.info(f"Enhanced handler result for {user_phone}: {len(response)} characters")
             
@@ -207,7 +181,7 @@ class EnhancedSmartMessageProcessor:
         return response
     
     async def _handle_system_command(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> str:
-        """Handle system commands with structured logic"""
+        """Handle system commands with FIXED async support"""
         command_type = SystemCommands.get_command_type(message)
         stage = user_state.get('stage', 'initial')
         
@@ -218,6 +192,7 @@ class EnhancedSmartMessageProcessor:
         # For other system commands, find appropriate handler
         handler = self._find_handler(message, user_state)
         if handler:
+            # FIXED: Properly await the handler result
             result = await handler.handle(user_phone, message, user_state)
             
             # Apply state updates

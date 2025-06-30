@@ -34,7 +34,11 @@ class HybridMessageHandler(ABC):
             if self.should_use_llm(message, user_state):
                 return await self._handle_with_llm(user_phone, message, user_state)
             else:
-                return self._handle_with_logic(user_phone, message, user_state)
+                # FIXED: Check if _handle_with_logic is async
+                if hasattr(self, '_handle_with_logic') and asyncio.iscoroutinefunction(self._handle_with_logic):
+                    return await self._handle_with_logic(user_phone, message, user_state)
+                else:
+                    return self._handle_with_logic(user_phone, message, user_state)
         except Exception as e:
             logger.error(f"Error in hybrid handler: {str(e)}", exc_info=True)
             return {
@@ -388,8 +392,8 @@ class SmartExamTypeHandler(HybridMessageHandler):
         """Use structured logic for all exam type handling"""
         return False
     
-    def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle with structured exam logic"""
+    async def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Handle with structured exam logic using async"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         
@@ -404,7 +408,9 @@ class SmartExamTypeHandler(HybridMessageHandler):
         
         try:
             exam_type = self.exam_registry.get_exam_type(exam)
-            result = exam_type.handle_stage(stage, user_phone, message, user_state)
+            
+            # FIXED: Await the async handle_stage method
+            result = await exam_type.handle_stage(stage, user_phone, message, user_state)
             
             state_updates = result.get('state_updates', {})
             next_stage = result.get('next_stage')
