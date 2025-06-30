@@ -425,6 +425,16 @@ Bot: 📊 Your Biology Performance:
 - **Year Pattern Analysis**: Understand how exam patterns change over years
 - **Predictive Recommendations**: AI predicts which topics to study next
 
+### UI/UX / Multi-Device Support
+- **Web Interface or Mobile App**: Consider adding a web interface or mobile app for users who prefer a visual UI in addition to WhatsApp.
+- **Voice Support & Accessibility**: Explore voice support and accessibility features to boost adoption among visually impaired students.
+
+### Offline/Low-Data Mode
+- **Local-First/Offline Mode**: Add a local-first version or offline mode for low-bandwidth regions (cache questions locally, sync answers later).
+
+### Gamification Elements
+- **Progress Badges, Streaks, Peer Challenges**: Add gamification features such as badges, streaks, or peer challenges to increase motivation and engagement.
+
 ## 📞 Support
 
 For issues or questions:
