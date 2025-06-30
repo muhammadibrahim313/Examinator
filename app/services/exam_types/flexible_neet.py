@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class FlexibleNEETExamType(BaseExamType):
     """
-    Flexible NEET exam type supporting both topic-based and year-based practice
+    Flexible NEET exam type with DIRECT question delivery - no loading stages
     """
     
     def __init__(self):
@@ -22,8 +22,8 @@ class FlexibleNEETExamType(BaseExamType):
     def get_initial_stage(self) -> str:
         return 'selecting_subject'
     
-    def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle NEET stages with flexible practice options"""
+    async def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle NEET stages with DIRECT question loading"""
         self.logger.info(f"Handling Flexible NEET stage '{stage}' for {user_phone}")
         
         if stage == 'selecting_subject':
@@ -31,7 +31,7 @@ class FlexibleNEETExamType(BaseExamType):
         elif stage == 'selecting_practice_mode':
             return self._handle_practice_mode_selection(user_phone, message, user_state)
         elif stage == 'selecting_practice_option':
-            return self._handle_practice_option_selection(user_phone, message, user_state)
+            return await self._handle_practice_option_selection(user_phone, message, user_state)
         elif stage == 'taking_exam':
             return self._handle_answer(user_phone, message, user_state)
         else:
@@ -166,8 +166,8 @@ class FlexibleNEETExamType(BaseExamType):
                 'state_updates': {}
             }
     
-    def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle specific topic or year selection - FIXED: No more empty responses"""
+    async def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Handle specific topic or year selection with DIRECT question loading"""
         subject = user_state.get('subject')
         practice_mode = user_state.get('practice_mode')
         
@@ -196,22 +196,13 @@ class FlexibleNEETExamType(BaseExamType):
                     practice_type = "topic"
                     num_questions = 25
                 
-                # FIXED: Return proper loading message instead of empty response
-                loading_message = f"✅ You selected: {selected_option}\n\n"
-                loading_message += f"🔄 Loading {num_questions} NEET {subject} questions...\n"
-                loading_message += f"📚 {selected_option}\n"
-                loading_message += f"⏱️ This may take a moment..."
-                
-                return {
-                    'response': loading_message,
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': practice_type,
-                        'selected_option': selected_option,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
+                # FIXED: Directly load questions and return first question
+                return await self.load_questions_async(user_phone, {
+                    **user_state,
+                    'practice_type': practice_type,
+                    'selected_option': selected_option,
+                    'questions_needed': num_questions
+                })
             else:
                 return {
                     'response': f"Invalid choice. Please select a number between 1 and {len(topic_options)}.\n\n" + 
@@ -228,22 +219,13 @@ class FlexibleNEETExamType(BaseExamType):
             if selected_year:
                 num_questions = self.question_fetcher.get_questions_per_exam('neet', subject)
                 
-                # FIXED: Return proper loading message instead of empty response
-                loading_message = f"✅ You selected: {selected_year}\n\n"
-                loading_message += f"🔄 Loading {num_questions} NEET {subject} questions from {selected_year}...\n"
-                loading_message += f"📅 NEET {selected_year} - Complete {subject}\n"
-                loading_message += f"⏱️ This may take a moment..."
-                
-                return {
-                    'response': loading_message,
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': 'year',
-                        'selected_option': selected_year,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
+                # FIXED: Directly load questions and return first question
+                return await self.load_questions_async(user_phone, {
+                    **user_state,
+                    'practice_type': 'year',
+                    'selected_option': selected_year,
+                    'questions_needed': num_questions
+                })
             else:
                 return {
                     'response': f"Invalid choice. Please select a number between 1 and {len(year_options)}.\n\n" + 
@@ -253,7 +235,7 @@ class FlexibleNEETExamType(BaseExamType):
                 }
     
     async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Load questions based on practice type (topic or year)"""
+        """FIXED: Load questions and return FIRST QUESTION directly"""
         subject = user_state.get('subject')
         practice_mode = user_state.get('practice_mode')
         practice_type = user_state.get('practice_type')
@@ -293,10 +275,9 @@ class FlexibleNEETExamType(BaseExamType):
                     'state_updates': {'stage': 'selecting_practice_option'}
                 }
             
-            # Format first question - FIXED: Remove the fetching message from here
+            # FIXED: Format first question directly - no loading message
             first_question = self._format_question(questions[0], 1, len(questions))
             
-            # FIXED: Clean intro without the fetching message
             intro = f"🎯 Starting NEET {subject} Practice\n"
             intro += f"📚 {practice_description}\n"
             intro += f"📊 {len(questions)} real past questions\n"

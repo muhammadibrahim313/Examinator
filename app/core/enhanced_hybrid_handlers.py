@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class PersonalizedExamTypeHandler(HybridMessageHandler):
     """
-    Enhanced exam type handler with FIXED navigation command routing
+    Enhanced exam type handler with FIXED async handling - NO loading stages
     """
     
     def __init__(self, state_manager, exam_registry):
@@ -30,10 +30,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         """FIXED: Never use LLM for system commands - always use structured logic"""
         stage = user_state.get('stage', '')
         message_lower = message.lower().strip()
-        
-        # NEVER use LLM during loading stages
-        if stage in ['loading_questions', 'async_loading']:
-            return False
         
         # NEVER use LLM for system commands - this is the key fix
         if SystemCommands.is_system_command(message_lower):
@@ -57,8 +53,8 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         # Default to structured logic for everything else
         return False
     
-    def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced logic handler with FIXED navigation command handling"""
+    async def _handle_with_logic(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Enhanced logic handler with async exam type handling"""
         exam = user_state.get('exam')
         stage = user_state.get('stage')
         message_lower = message.lower().strip()
@@ -70,24 +66,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 'response': "Session error. Please send 'start' to begin again.",
                 'state_updates': {'stage': 'initial'},
                 'next_handler': None
-            }
-        
-        # Handle loading_questions stage - trigger immediate loading
-        if stage == 'loading_questions':
-            logger.info(f"🔄 IMMEDIATE LOADING TRIGGER: Stage is loading_questions for {user_phone}")
-            return {
-                'response': '',  # Empty response - will be replaced by async loading result
-                'state_updates': {'stage': 'async_loading'},
-                'next_handler': f'{exam}_handler',
-                'immediate_async_load': True
-            }
-        
-        # Handle async_loading stage
-        if stage == 'async_loading':
-            return {
-                'response': "⏳ Still loading questions... Please wait a moment.",
-                'state_updates': {},
-                'next_handler': f'{exam}_handler'
             }
         
         # FIXED: Handle navigation commands FIRST with structured logic
@@ -113,8 +91,8 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
         try:
             exam_type = self.exam_registry.get_exam_type(exam)
             
-            # Regular handling for other stages
-            result = exam_type.handle_stage(stage, user_phone, message, user_state)
+            # FIXED: Call async handle_stage method
+            result = await exam_type.handle_stage(stage, user_phone, message, user_state)
             
             # Enhanced answer processing with performance tracking
             if stage == 'taking_exam' and message.strip().lower() in ['a', 'b', 'c', 'd']:
@@ -154,8 +132,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
             # Define stage hierarchy for navigation
             stage_hierarchy = {
                 'taking_exam': 'selecting_practice_option',
-                'loading_questions': 'selecting_practice_option',
-                'async_loading': 'selecting_practice_option',
                 'selecting_practice_option': 'selecting_practice_mode',
                 'selecting_practice_mode': 'selecting_subject',
                 'selecting_subject': 'selecting_exam',
@@ -450,48 +426,6 @@ class PersonalizedExamTypeHandler(HybridMessageHandler):
                 }
         
         return None
-    
-    async def handle_async_loading(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle async question loading with proper error handling"""
-        try:
-            logger.info(f"🔄 ASYNC LOADING: Starting real question fetch for {user_phone}")
-            
-            exam = user_state.get('exam')
-            exam_type = self.exam_registry.get_exam_type(exam)
-            
-            # Use the exam type's async loading method
-            if hasattr(exam_type, 'load_questions_async'):
-                result = await exam_type.load_questions_async(user_phone, user_state)
-                logger.info(f"✅ ASYNC LOADING COMPLETE: Got questions for {user_phone}")
-                return result
-            else:
-                logger.error(f"❌ ASYNC LOADING ERROR: Exam type {exam} doesn't support async loading")
-                return self._generate_error_response(user_phone, user_state)
-                
-        except Exception as e:
-            logger.error(f"❌ ASYNC LOADING FAILED: Error in async question loading: {str(e)}", exc_info=True)
-            return self._generate_error_response(user_phone, user_state)
-    
-    def _generate_error_response(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate error response with helpful guidance"""
-        exam = user_state.get('exam', '').upper()
-        subject = user_state.get('subject', '')
-        
-        response = f"❌ Sorry, there was an error loading {exam} {subject} questions.\n\n"
-        response += f"This could be due to:\n"
-        response += f"• Network connectivity issues\n"
-        response += f"• Temporary server problems\n\n"
-        response += f"💡 What you can do:\n"
-        response += f"• Send 'back' - Select another option\n"
-        response += f"• Send 'restart' - Start over\n"
-        response += f"• Send 'help' - Get assistance\n"
-        response += f"• Try again in a few minutes"
-        
-        return {
-            'response': response,
-            'state_updates': {'stage': 'selecting_practice_option'},
-            'next_handler': f'{user_state.get("exam")}_handler'
-        }
     
     def _handle_enhanced_answer(self, user_phone: str, message: str, 
                               user_state: Dict[str, Any], base_result: Dict[str, Any]) -> Dict[str, Any]:

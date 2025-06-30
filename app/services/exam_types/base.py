@@ -30,9 +30,9 @@ class BaseExamType(ABC):
         pass
     
     @abstractmethod
-    def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Handle a specific stage for this exam type
+        Handle a specific stage for this exam type (NOW ASYNC)
         Returns: {
             'response': str,  # Message to send to user
             'next_stage': str,  # Next stage to transition to

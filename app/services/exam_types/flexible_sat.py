@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class FlexibleSATExamType(BaseExamType):
     """
-    SAT exam type - TOPIC-BASED PRACTICE ONLY (SAT doesn't have yearly versions like JAMB/NEET)
+    SAT exam type - TOPIC-BASED PRACTICE ONLY with DIRECT question delivery
     """
     
     def __init__(self):
@@ -23,14 +23,14 @@ class FlexibleSATExamType(BaseExamType):
     def get_initial_stage(self) -> str:
         return 'selecting_subject'
     
-    def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle SAT stages - topic-based practice only"""
+    async def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle SAT stages - topic-based practice only with DIRECT loading"""
         self.logger.info(f"Handling SAT stage '{stage}' for {user_phone}")
         
         if stage == 'selecting_subject':
             return self._handle_subject_selection(user_phone, message, user_state)
         elif stage == 'selecting_practice_option':
-            return self._handle_practice_option_selection(user_phone, message, user_state)
+            return await self._handle_practice_option_selection(user_phone, message, user_state)
         elif stage == 'taking_exam':
             return self._handle_answer(user_phone, message, user_state)
         else:
@@ -103,8 +103,8 @@ class FlexibleSATExamType(BaseExamType):
                 'state_updates': {}
             }
     
-    def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle practice option selection for SAT (topic-based only) - FIXED: No more empty responses"""
+    async def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Handle practice option selection for SAT with DIRECT question loading"""
         subject = user_state.get('subject')
         if not subject:
             return {
@@ -130,22 +130,13 @@ class FlexibleSATExamType(BaseExamType):
                 practice_type = "topic"
                 num_questions = 25
             
-            # FIXED: Return proper loading message instead of empty response
-            loading_message = f"✅ You selected: {selected_option}\n\n"
-            loading_message += f"🔄 Loading {num_questions} SAT {subject} questions...\n"
-            loading_message += f"📚 {selected_option}\n"
-            loading_message += f"⏱️ This may take a moment..."
-            
-            return {
-                'response': loading_message,
-                'next_stage': 'loading_questions',
-                'state_updates': {
-                    'practice_type': practice_type,
-                    'selected_option': selected_option,
-                    'questions_needed': num_questions,
-                    'stage': 'loading_questions'
-                }
-            }
+            # FIXED: Directly load questions and return first question
+            return await self.load_questions_async(user_phone, {
+                **user_state,
+                'practice_type': practice_type,
+                'selected_option': selected_option,
+                'questions_needed': num_questions
+            })
         else:
             return {
                 'response': f"Invalid choice. Please select a number between 1 and {len(topic_options)}.\n\n" + 
@@ -155,7 +146,7 @@ class FlexibleSATExamType(BaseExamType):
             }
     
     async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Load questions based on practice type (topic-based only for SAT)"""
+        """FIXED: Load questions and return FIRST QUESTION directly"""
         subject = user_state.get('subject')
         practice_type = user_state.get('practice_type')
         selected_option = user_state.get('selected_option')
@@ -188,10 +179,9 @@ class FlexibleSATExamType(BaseExamType):
                     'state_updates': {'stage': 'selecting_practice_option'}
                 }
             
-            # Format first question - FIXED: Remove the fetching message from here
+            # FIXED: Format first question directly - no loading message
             first_question = self._format_question(questions[0], 1, len(questions))
             
-            # FIXED: Clean intro without the fetching message
             intro = f"🎯 Starting SAT {subject} Practice\n"
             intro += f"📚 {practice_description}\n"
             intro += f"📊 {len(questions)} practice questions\n"

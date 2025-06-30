@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class FlexibleJAMBExamType(BaseExamType):
     """
-    FIXED: Flexible JAMB exam type with immediate loading and clean responses
+    FIXED: Flexible JAMB exam type with NO loading stages - direct question delivery
     """
     
     def __init__(self):
@@ -22,8 +22,8 @@ class FlexibleJAMBExamType(BaseExamType):
     def get_initial_stage(self) -> str:
         return 'selecting_subject'
     
-    def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle JAMB stages with FIXED immediate loading"""
+    async def handle_stage(self, stage: str, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle JAMB stages with DIRECT question loading - NO loading stages"""
         self.logger.info(f"Handling Flexible JAMB stage '{stage}' for {user_phone}")
         
         if stage == 'selecting_subject':
@@ -31,7 +31,7 @@ class FlexibleJAMBExamType(BaseExamType):
         elif stage == 'selecting_practice_mode':
             return self._handle_practice_mode_selection(user_phone, message, user_state)
         elif stage == 'selecting_practice_option':
-            return self._handle_practice_option_selection(user_phone, message, user_state)
+            return await self._handle_practice_option_selection(user_phone, message, user_state)
         elif stage == 'taking_exam':
             return self._handle_answer(user_phone, message, user_state)
         else:
@@ -166,8 +166,8 @@ class FlexibleJAMBExamType(BaseExamType):
                 'state_updates': {}
             }
     
-    def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """FIXED: Handle specific topic or year selection with immediate loading trigger"""
+    async def _handle_practice_option_selection(self, user_phone: str, message: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
+        """FIXED: Handle specific topic or year selection with DIRECT question loading"""
         subject = user_state.get('subject')
         practice_mode = user_state.get('practice_mode')
         
@@ -196,23 +196,13 @@ class FlexibleJAMBExamType(BaseExamType):
                     practice_type = "topic"
                     num_questions = 25
                 
-                # FIXED: Return loading message and trigger immediate loading
-                exam = user_state.get('exam', '').upper()
-                loading_message = f"✅ You selected: {selected_option}\n\n"
-                loading_message += f"⏳ Loading {num_questions} {exam} {subject} questions...\n"
-                loading_message += f"📚 {selected_option}\n"
-                loading_message += f"🔍 Searching for authentic past questions..."
-                
-                return {
-                    'response': loading_message,
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': practice_type,
-                        'selected_option': selected_option,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
+                # FIXED: Directly load questions and return first question
+                return await self.load_questions_async(user_phone, {
+                    **user_state,
+                    'practice_type': practice_type,
+                    'selected_option': selected_option,
+                    'questions_needed': num_questions
+                })
             else:
                 return {
                     'response': f"Invalid choice. Please select a number between 1 and {len(topic_options)}.\n\n" + 
@@ -229,23 +219,13 @@ class FlexibleJAMBExamType(BaseExamType):
             if selected_year:
                 num_questions = 50  # Standard JAMB questions per subject
                 
-                # FIXED: Return loading message and trigger immediate loading
-                exam = user_state.get('exam', '').upper()
-                loading_message = f"✅ You selected: {selected_year}\n\n"
-                loading_message += f"⏳ Loading {num_questions} {exam} {subject} questions from {selected_year}...\n"
-                loading_message += f"📅 {exam} {selected_year} - Complete {subject}\n"
-                loading_message += f"🔍 Searching for authentic past questions..."
-                
-                return {
-                    'response': loading_message,
-                    'next_stage': 'loading_questions',
-                    'state_updates': {
-                        'practice_type': 'year',
-                        'selected_option': selected_year,
-                        'questions_needed': num_questions,
-                        'stage': 'loading_questions'
-                    }
-                }
+                # FIXED: Directly load questions and return first question
+                return await self.load_questions_async(user_phone, {
+                    **user_state,
+                    'practice_type': 'year',
+                    'selected_option': selected_year,
+                    'questions_needed': num_questions
+                })
             else:
                 return {
                     'response': f"Invalid choice. Please select a number between 1 and {len(year_options)}.\n\n" + 
@@ -255,7 +235,7 @@ class FlexibleJAMBExamType(BaseExamType):
                 }
     
     async def load_questions_async(self, user_phone: str, user_state: Dict[str, Any]) -> Dict[str, Any]:
-        """FIXED: Load questions based on practice type with clean responses"""
+        """FIXED: Load questions and return FIRST QUESTION directly - no loading messages"""
         subject = user_state.get('subject')
         practice_mode = user_state.get('practice_mode')
         practice_type = user_state.get('practice_type')
@@ -297,7 +277,7 @@ class FlexibleJAMBExamType(BaseExamType):
                     'state_updates': {'stage': 'selecting_practice_option'}
                 }
             
-            # FIXED: Format first question with clean intro (no "fetching" message)
+            # FIXED: Format first question with clean intro (no "loading" or "fetching" message)
             first_question = self._format_question(questions[0], 1, len(questions))
             
             intro = f"🎯 Starting JAMB {subject} Practice\n"
