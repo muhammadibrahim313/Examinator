@@ -1,6 +1,6 @@
-# Examinator - Flexible WhatsApp Exam Practice Bot
+# Examinator - Flexible WhatsApp Exam Practice Bot (Built with Bolt)
 
-A revolutionary WhatsApp chatbot that helps students practice for computer-based exams using **real past questions**. Students can choose to practice by **topics** OR **years** with complete flexibility across all supported exams.
+A revolutionary WhatsApp chatbot built with Bolt, designed to help students practice for computer-based exams using **real past questions**. Students can choose to practice by **topics** OR **years** with complete flexibility across all supported exams.
 
 ## 🎯 Key Features
 
