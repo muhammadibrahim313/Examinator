@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class EnhancedLLMAgentService:
     """
-    Enhanced LLM agent service with FIXED response processing
+    Enhanced LLM agent service with FIXED response processing and delivery
     """
     
     def __init__(self):
@@ -36,10 +36,10 @@ class EnhancedLLMAgentService:
     
     async def process_message(self, user_phone: str, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
-        Process a message using the enhanced LLM agent with FIXED response handling
+        Process a message using the enhanced LLM agent with FIXED response handling and delivery
         """
         try:
-            logger.info(f"Processing enhanced LLM message from {user_phone}: {message}")
+            logger.info(f"🤖 Processing enhanced LLM message from {user_phone}: {message}")
             
             # Get user's performance data
             user_summary = self.analytics.get_user_progress_summary(user_phone)
@@ -54,7 +54,7 @@ class EnhancedLLMAgentService:
             # Create the input for the agent
             agent_input = {"messages": [HumanMessage(content=enhanced_message)]}
             
-            # FIXED: Process with the agent and collect ALL response content
+            # FIXED: Process with the agent and collect ALL response content properly
             response_chunks = []
             final_messages = []
             
@@ -63,10 +63,10 @@ class EnhancedLLMAgentService:
             async for chunk in self.agent.astream(agent_input, config=self.config):
                 logger.debug(f"📦 Agent chunk received: {list(chunk.keys())}")
                 
-                # Collect messages from different possible locations
+                # FIXED: Collect messages from ALL possible locations in the chunk
                 if 'messages' in chunk:
                     for msg in chunk['messages']:
-                        if hasattr(msg, 'content') and msg.content:
+                        if hasattr(msg, 'content') and msg.content and msg.content.strip():
                             logger.debug(f"✅ Found message content: {msg.content[:100]}...")
                             response_chunks.append(msg.content)
                             final_messages.append(msg)
@@ -74,28 +74,48 @@ class EnhancedLLMAgentService:
                 # Also check for agent-specific message format
                 if 'agent' in chunk and 'messages' in chunk['agent']:
                     for msg in chunk['agent']['messages']:
-                        if hasattr(msg, 'content') and msg.content:
+                        if hasattr(msg, 'content') and msg.content and msg.content.strip():
                             logger.debug(f"✅ Found agent message content: {msg.content[:100]}...")
                             response_chunks.append(msg.content)
                             final_messages.append(msg)
+                
+                # Check for other possible response formats
+                if hasattr(chunk, 'content') and chunk.content and chunk.content.strip():
+                    logger.debug(f"✅ Found direct chunk content: {chunk.content[:100]}...")
+                    response_chunks.append(chunk.content)
             
             logger.info(f"📝 LLM agent processing complete: {len(response_chunks)} response chunks collected")
             
-            # FIXED: Process the final response properly
+            # FIXED: Process the final response properly with better extraction
             if response_chunks:
                 # Get the last meaningful response (usually the final answer)
-                final_response = response_chunks[-1] if response_chunks else ""
+                final_response = ""
+                
+                # Try to find the best response from collected chunks
+                for chunk in reversed(response_chunks):  # Start from the end
+                    if chunk and chunk.strip() and len(chunk.strip()) > 10:  # Meaningful content
+                        final_response = chunk.strip()
+                        break
+                
+                # If no good response found, use the last non-empty one
+                if not final_response:
+                    for chunk in reversed(response_chunks):
+                        if chunk and chunk.strip():
+                            final_response = chunk.strip()
+                            break
                 
                 # Log what we got
                 logger.info(f"📤 Final LLM response length: {len(final_response)} characters")
                 logger.info(f"📤 Final LLM response preview: {final_response[:200]}...")
                 
-                # FIXED: Don't apply word limits or truncation to LLM responses
-                # The LLM should handle its own response length
-                formatted_response = self._format_response_for_whatsapp(final_response)
-                
-                logger.info(f"✅ Enhanced LLM response for {user_phone}: SUCCESS")
-                return formatted_response
+                if final_response:
+                    # FIXED: Format for WhatsApp and return
+                    formatted_response = self._format_response_for_whatsapp(final_response)
+                    logger.info(f"✅ Enhanced LLM response for {user_phone}: SUCCESS - {len(formatted_response)} chars")
+                    return formatted_response
+                else:
+                    logger.error(f"❌ LLM AGENT FAILED: Empty final response for {user_phone}")
+                    return self._get_fallback_response(message, context)
             
             else:
                 logger.error(f"❌ LLM AGENT FAILED: No response chunks collected for {user_phone}")
@@ -226,6 +246,7 @@ RESPONSE GUIDELINES:
 - Use emojis appropriately to make responses friendly
 - Focus on exam practice and study guidance
 - Keep responses conversational but informative
+- ALWAYS provide a complete, helpful response
 """
         
         if message_type == 'faq_help':
@@ -301,6 +322,9 @@ GENERAL ASSISTANCE:
         elif any(word in message_lower for word in ['duplicate', 'repeat', 'same']):
             return "📚 About duplicate questions:\n\nSometimes you might see similar questions because:\n• Real exams often test the same concepts\n• Questions come from multiple years\n• Important topics appear frequently\n\nThis helps reinforce learning! 💪"
         
+        elif any(word in message_lower for word in ['improve', 'better', 'score']):
+            return "📈 Tips to improve your scores:\n\n• Practice regularly and consistently\n• Focus on your weak areas\n• Review explanations carefully\n• Time yourself during practice\n• Take breaks to avoid burnout\n\nKeep practicing - you'll see improvement! 🎯"
+        
         elif context and context.get('exam'):
             exam_name = context.get('exam', '').upper()
             return f"I'm having trouble processing that request about {exam_name}. Send 'help' for available commands or try rephrasing your question."
@@ -330,17 +354,32 @@ GENERAL ASSISTANCE:
     
     def _format_response_for_whatsapp(self, response: str) -> str:
         """
-        Format the agent response for WhatsApp delivery - FIXED: No truncation
+        Format the agent response for WhatsApp delivery - FIXED: Ensure proper formatting
         """
+        if not response or not response.strip():
+            logger.warning("⚠️ Empty response received for formatting")
+            return "I'm sorry, I couldn't generate a proper response. Please try again."
+        
         # Remove excessive formatting that doesn't work well in WhatsApp
         formatted = response.strip()
         
         # Clean up any problematic characters or formatting
         formatted = formatted.replace('```', '').replace('**', '*')
         
-        # FIXED: Don't truncate LLM responses - let them be full length
-        # The LLM should handle appropriate response length
+        # Remove any tool-use tags or XML-like content that might leak through
+        import re
+        formatted = re.sub(r'<[^>]+>', '', formatted)  # Remove XML tags
+        formatted = re.sub(r'\{[^}]*\}', '', formatted)  # Remove JSON-like content
         
+        # Clean up multiple newlines
+        formatted = re.sub(r'\n\s*\n\s*\n', '\n\n', formatted)
+        
+        # Ensure we have actual content
+        if not formatted or len(formatted.strip()) < 5:
+            logger.warning("⚠️ Formatted response too short or empty")
+            return "I'm sorry, I couldn't generate a proper response. Please try again."
+        
+        logger.info(f"📤 Formatted response: {len(formatted)} characters")
         return formatted
     
     def is_exam_related_query(self, message: str) -> bool:
